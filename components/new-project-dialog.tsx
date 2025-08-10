@@ -3,6 +3,7 @@
 import type React from "react"
 
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 import { Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -16,22 +17,52 @@ import {
 } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 
 export function NewProjectDialog() {
   const [open, setOpen] = useState(false)
   const [projectName, setProjectName] = useState("")
-  const [companyName, setCompanyName] = useState("")
+  const [description, setDescription] = useState("")
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState("")
+  const router = useRouter()
 
-  function onSubmit(e: React.FormEvent) {
+  async function onSubmit(e: React.FormEvent) {
     e.preventDefault()
-    // UI-only: Close dialog. Hook up to real create later.
-    setOpen(false)
-    // Optional: clear fields
-    setProjectName("")
-    setCompanyName("")
+    setIsLoading(true)
+    setError("")
+
+    try {
+      const response = await fetch('/api/projects', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: projectName,
+          description: description
+        }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to create project')
+      }
+
+      // Success - close dialog and refresh
+      setOpen(false)
+      setProjectName("")
+      setDescription("")
+      router.refresh()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred')
+    } finally {
+      setIsLoading(false)
+    }
   }
 
-  const canCreate = projectName.trim().length > 0 && companyName.trim().length > 0
+  const canCreate = projectName.trim().length > 0
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -61,22 +92,27 @@ export function NewProjectDialog() {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="companyName">Company Name</Label>
+            <Label htmlFor="description">Description (Optional)</Label>
             <Input
-              id="companyName"
-              placeholder="Acme Inc."
-              value={companyName}
-              onChange={(e) => setCompanyName(e.target.value)}
-              required
+              id="description"
+              placeholder="Brief description of the project"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
             />
           </div>
+
+          {error && (
+            <Alert variant="destructive">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
 
           <DialogFooter className="gap-2 sm:space-x-2">
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>
               Cancel
             </Button>
-            <Button type="submit" disabled={!canCreate}>
-              Create Project
+            <Button type="submit" disabled={!canCreate || isLoading}>
+              {isLoading ? 'Creating...' : 'Create Project'}
             </Button>
           </DialogFooter>
         </form>
