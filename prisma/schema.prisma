@@ -60,6 +60,8 @@ model Project {
   user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   estimates   Estimate[]
+  files       ProjectFile[]
+  analysis    ProjectAnalysis?
 }
 
 model Estimate {
@@ -72,4 +74,31 @@ model Estimate {
   updatedAt DateTime @updatedAt
   projectId String
   project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+model ProjectFile {
+  id          String   @id @default(cuid())
+  filename    String
+  originalName String
+  fileSize    Int
+  mimeType    String
+  filePath    String   // blob storage URL or local storage path
+  openaiFileId String? // OpenAI file ID for RAG
+  uploadedAt  DateTime @default(now())
+  projectId   String
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+model ProjectAnalysis {
+  id                    String   @id @default(cuid())
+  functionalCoverage    Int      // percentage 0-100
+  businessCoverage      Int
+  userExperienceCoverage Int
+  scopeCoverage         Int
+  overallClarity        Int
+  missingItems          Json     // array of missing requirement items
+  projectSummary        String?  // AI-generated project summary
+  analyzedAt            DateTime @default(now())
+  projectId             String   @unique
+  project               Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
 }

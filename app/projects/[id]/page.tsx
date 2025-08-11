@@ -1,6 +1,4 @@
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { Progress } from "@/components/ui/progress"
+import { Button } from "@/components/ui/button";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -8,51 +6,132 @@ import {
   BreadcrumbList,
   BreadcrumbPage,
   BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb"
-import { AlertCircle, Edit, RefreshCcw, ChevronRight } from "lucide-react"
-import Link from "next/link"
-import { ProjectUploader } from "@/components/project-uploader"
+} from "@/components/ui/breadcrumb";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  AlertCircle,
+  Edit,
+  RefreshCcw,
+  ChevronRight,
+  FileText,
+  BarChart3,
+  Code,
+} from "lucide-react";
 
-function formatTitleFromId(id: string) {
-  if (/^\d+$/.test(id)) return `Project ${id}`
-  return id.replace(/[-_]+/g, " ").replace(/\b\w/g, (m) => m.toUpperCase())
+import { JsonEditor } from "@/components/json-editor";
+import Link from "next/link";
+import { ProjectUploader } from "@/components/project-uploader";
+import { ProjectAnalysis } from "@/components/project-analysis";
+
+import { getCurrentUser } from "@/lib/auth";
+import { redirect } from "next/navigation";
+import { prisma } from "@/lib/db";
+import { PrismaClient } from "@prisma/client";
+
+type Project = {
+  id: string;
+  name: string;
+  description?: string;
+  status: string;
+  createdAt: Date;
+  updatedAt: Date;
+  workspace: {
+    id: string;
+    name: string;
+  };
+  user: {
+    id: string;
+    name?: string;
+    email: string;
+  };
+  files: {
+    id: string;
+    filename: string;
+    fileSize: number;
+    mimeType: string;
+    uploadedAt: Date;
+  }[];
+  estimatesCount: number;
+};
+
+async function getProject(id: string, userId: string): Promise<Project | null> {
+  try {
+    const project = await prisma.project.findFirst({
+      where: {
+        id,
+        userId: userId,
+      },
+      include: {
+        workspace: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+        files: {
+          select: {
+            id: true,
+            filename: true,
+            fileSize: true,
+            mimeType: true,
+            uploadedAt: true,
+          },
+        },
+        _count: {
+          select: {
+            estimates: true,
+          },
+        },
+      },
+    });
+
+    if (!project) {
+      return null;
+    }
+
+    return {
+      ...project,
+      estimatesCount: project._count.estimates,
+    };
+  } catch (error) {
+    console.error("Error fetching project:", error);
+    return null;
+  }
 }
 
-export default function ProjectDetailPage({ params }: { params: { id: string } }) {
-  const title = formatTitleFromId(params.id)
+export default async function ProjectDetailPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const user = await getCurrentUser();
 
-  // Seed files (UI only)
-  const initialFiles = [
-    {
-      name: "Requirements Document.pdf",
-      size: 2.4 * 1024 * 1024,
-      uploadedAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-    },
-    {
-      name: "Technical Specifications.docx",
-      size: 1.8 * 1024 * 1024,
-      uploadedAt: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(),
-    },
-    {
-      name: "Project Timeline.xlsx",
-      size: 956 * 1024,
-      uploadedAt: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString(),
-    },
-  ]
+  if (!user) {
+    redirect("/login");
+  }
 
-  const metrics = [
-    { label: "Functional Requirements", value: 85 },
-    { label: "Technical Scope", value: 60 },
-    { label: "Data & Storage", value: 30 },
-    { label: "Non-Functional", value: 70 },
-  ]
+  const { id } = await params;
+  const project = await getProject(id, user.userId);
 
-  const missing = [
-    "Database type not specified",
-    "Authentication method unclear",
-    "Performance requirements missing",
-    "Third-party integrations unknown",
-  ]
+  if (!project) {
+    redirect("/projects");
+  }
+
+  const title = project.name;
+
+  // Map actual project files to initialFiles format
+  const initialFiles = project.files.map((file) => ({
+    name: file.filename,
+    size: file.fileSize,
+    uploadedAt: file.uploadedAt.toISOString(),
+  }));
 
   return (
     <div className="space-y-6 sm:space-y-8">
@@ -77,72 +156,93 @@ export default function ProjectDetailPage({ params }: { params: { id: string } }
         {/* Header */}
         <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">{title}</h1>
-            <p className="text-muted-foreground">Created on January 15, 2025</p>
+            <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
+              {title}
+            </h1>
+            <p className="text-muted-foreground">
+              Created on{" "}
+              {new Date(project.createdAt).toLocaleDateString("en-US", {
+                month: "long",
+                day: "numeric",
+                year: "numeric",
+              })}
+            </p>
           </div>
           <div className="flex items-center gap-2">
             <Button variant="outline">
               <Edit className="mr-2 h-4 w-4" />
               Edit Project
             </Button>
-            <Button>Analyze Project</Button>
           </div>
         </div>
       </div>
 
       {/* Content */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3 xl:gap-8">
-        {/* Left column with uploader and list (client) */}
-        <div className="space-y-6 lg:col-span-2 xl:space-y-8">
-          <ProjectUploader initialFiles={initialFiles} />
-        </div>
+      <Tabs defaultValue="documents" className="w-full">
+        <TabsList className="grid w-full md:w-fit grid-cols-3">
+          <TabsTrigger value="documents" className="flex items-center gap-2">
+            <FileText className="h-4 w-4" />
+            Documents
+          </TabsTrigger>
+          <TabsTrigger value="analysis" className="flex items-center gap-2">
+            <BarChart3 className="h-4 w-4" />
+            Project Analysis
+          </TabsTrigger>
+          <TabsTrigger value="epics" className="flex items-center gap-2">
+            <Code className="h-4 w-4" />
+            Epics & Stories
+          </TabsTrigger>
+        </TabsList>
 
-        {/* Right sidebar */}
-        <div className="space-y-6 xl:space-y-8">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0">
-              <div>
-                <CardTitle>Analysis Results</CardTitle>
-                <CardDescription>Last analyzed: 2 hours ago • Documents: 3 files</CardDescription>
-              </div>
-              <Button variant="outline" size="sm">
-                <RefreshCcw className="mr-2 h-4 w-4" />
-                Re-analyze
-              </Button>
-            </CardHeader>
-            <CardContent className="space-y-5">
-              {metrics.map((m) => (
-                <div key={m.label} className="space-y-2">
-                  <div className="flex items-center justify-between text-xs">
-                    <div className="flex items-center gap-2">
-                      <AlertCircle className="h-3.5 w-3.5 text-muted-foreground" />
-                      <span className="font-medium">{m.label}</span>
-                    </div>
-                    <span className="font-medium">{m.value}%</span>
-                  </div>
-                  <Progress value={m.value} className="h-2 rounded-full" />
-                </div>
-              ))}
-            </CardContent>
-          </Card>
+        <TabsContent value="documents" className="mt-6">
+          <ProjectUploader projectId={project.id} initialFiles={initialFiles} />
+        </TabsContent>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Missing Information</CardTitle>
-              <CardDescription>{missing.length} items</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {missing.map((item, idx) => (
-                <div key={idx} className="flex items-start gap-3 rounded-lg border p-3">
-                  <div className="mt-0.5 h-2.5 w-2.5 shrink-0 rounded-full bg-muted-foreground/40" />
-                  <div className="flex-1 text-sm">{item}</div>
-                  <AlertCircle className="h-4 w-4 text-muted-foreground" />
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+        <TabsContent value="analysis" className="mt-6">
+          <ProjectAnalysis
+            projectId={project.id}
+            hasFiles={project.files && project.files.length > 0}
+          />
+        </TabsContent>
+
+        <TabsContent value="epics" className="mt-6">
+          <div className="space-y-6">
+            <JsonEditor
+              data={{
+                epics: [
+                  {
+                    id: "epic-001",
+                    title: "User Authentication",
+                    description: "User login and registration system",
+                    status: "in_progress",
+                    priority: "high",
+                    stories: [
+                      {
+                        id: "story-001",
+                        title: "User Registration",
+                        description:
+                          "As a user, I want to register so that I can access the platform",
+                        status: "todo",
+                        priority: "high",
+                        story_points: 5,
+                      },
+                      {
+                        id: "story-002",
+                        title: "User Login",
+                        description:
+                          "As a user, I want to login so that I can access my account",
+                        status: "in_progress",
+                        priority: "high",
+                        story_points: 3,
+                      },
+                    ],
+                  },
+                ],
+              }}
+            />
+          </div>
+        </TabsContent>
+      </Tabs>
     </div>
-  )
+  );
 }
