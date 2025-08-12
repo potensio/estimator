@@ -31,7 +31,7 @@ import { PrismaClient } from "@prisma/client";
 type Project = {
   id: string;
   name: string;
-  description?: string;
+  description: string | null;
   status: string;
   createdAt: Date;
   updatedAt: Date;
@@ -41,7 +41,7 @@ type Project = {
   };
   user: {
     id: string;
-    name?: string;
+    name: string | null;
     email: string;
   };
   files: {
@@ -207,39 +207,7 @@ export default async function ProjectDetailPage({
 
         <TabsContent value="epics" className="mt-6">
           <div className="space-y-6">
-            <JsonEditor
-              data={{
-                epics: [
-                  {
-                    id: "epic-001",
-                    title: "User Authentication",
-                    description: "User login and registration system",
-                    status: "in_progress",
-                    priority: "high",
-                    stories: [
-                      {
-                        id: "story-001",
-                        title: "User Registration",
-                        description:
-                          "As a user, I want to register so that I can access the platform",
-                        status: "todo",
-                        priority: "high",
-                        story_points: 5,
-                      },
-                      {
-                        id: "story-002",
-                        title: "User Login",
-                        description:
-                          "As a user, I want to login so that I can access my account",
-                        status: "in_progress",
-                        priority: "high",
-                        story_points: 3,
-                      },
-                    ],
-                  },
-                ],
-              }}
-            />
+            <JsonEditor projectId={project.id} data={{}} />
           </div>
         </TabsContent>
       </Tabs>

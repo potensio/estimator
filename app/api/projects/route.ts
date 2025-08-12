@@ -168,3 +168,56 @@ export async function GET(request: NextRequest) {
     )
   }
 }
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const user = await getCurrentUser()
+    
+    if (!user) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      )
+    }
+
+    const { searchParams } = new URL(request.url)
+    const projectId = searchParams.get('projectId')
+
+    if (!projectId) {
+      return NextResponse.json(
+        { error: 'Project ID required' },
+        { status: 400 }
+      )
+    }
+
+    // Verify project ownership
+    const project = await prisma.project.findFirst({
+      where: {
+        id: projectId,
+        userId: user.userId,
+      },
+    })
+
+    if (!project) {
+      return NextResponse.json(
+        { error: 'Project not found' },
+        { status: 404 }
+      )
+    }
+
+    // Delete project (cascade will handle related records)
+    await prisma.project.delete({
+      where: {
+        id: projectId,
+      },
+    })
+
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    console.error('Error deleting project:', error)
+    return NextResponse.json(
+      { error: 'Failed to delete project' },
+      { status: 500 }
+    )
+  }
+}

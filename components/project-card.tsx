@@ -1,6 +1,8 @@
 "use client"
 
+import { useState } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
@@ -12,7 +14,18 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { MoreHorizontal } from "lucide-react"
+import { useToast } from "@/hooks/use-toast"
 
 type Status = "Active" | "In Progress" | "Completed" | "On Hold"
 
@@ -26,7 +39,12 @@ export type Project = {
   href?: string
 }
 
-export function ProjectCard({ title, company, clarity, status, date, href }: Project) {
+export function ProjectCard({ id, title, company, clarity, status, date, href }: Project) {
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
+  const router = useRouter()
+  const { toast } = useToast()
+
   const badge =
     status === "Completed"
       ? { variant: "secondary", label: "Completed" }
@@ -35,6 +53,37 @@ export function ProjectCard({ title, company, clarity, status, date, href }: Pro
         : status === "On Hold"
           ? { variant: "secondary", label: "On Hold" }
           : { variant: "secondary", label: "Active" }
+
+  const handleDelete = async () => {
+    try {
+      setIsDeleting(true)
+      const response = await fetch(`/api/projects?projectId=${id}`, {
+        method: 'DELETE',
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to delete project')
+      }
+
+      toast({
+        title: "Project deleted",
+        description: "The project has been successfully deleted.",
+      })
+
+      // Refresh the page to update the project list
+      router.refresh()
+    } catch (error) {
+      console.error('Error deleting project:', error)
+      toast({
+        title: "Error",
+        description: "Failed to delete project. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsDeleting(false)
+      setDeleteDialogOpen(false)
+    }
+  }
 
   const content = (
     <>
@@ -69,8 +118,16 @@ export function ProjectCard({ title, company, clarity, status, date, href }: Pro
               <DropdownMenuItem>Open</DropdownMenuItem>
             )}
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={(e) => e.preventDefault()}>Rename</DropdownMenuItem>
-            <DropdownMenuItem onClick={(e) => e.preventDefault()}>Archive</DropdownMenuItem>
+            <DropdownMenuItem 
+              onClick={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                setDeleteDialogOpen(true)
+              }}
+              className="text-red-600 focus:text-red-600"
+            >
+              Delete
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </CardHeader>
@@ -90,11 +147,37 @@ export function ProjectCard({ title, company, clarity, status, date, href }: Pro
 
   const card = <Card className="shadow-sm rounded-xl">{content}</Card>
 
-  return href ? (
-    <Link href={href} className="block transition-transform hover:-translate-y-0.5">
-      {card}
-    </Link>
-  ) : (
-    card
+  return (
+    <>
+      {href ? (
+        <Link href={href} className="block transition-transform hover:-translate-y-0.5">
+          {card}
+        </Link>
+      ) : (
+        card
+      )}
+      
+      {/* Delete confirmation dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Project</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete "{title}"? This action cannot be undone and will permanently remove all project data, files, and analysis.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleDelete}
+              disabled={isDeleting}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {isDeleting ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   )
 }

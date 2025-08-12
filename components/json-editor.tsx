@@ -3,7 +3,8 @@
 import { useState } from "react";
 import dynamic from "next/dynamic";
 import { Button } from "./ui/button";
-import { CopyIcon, ChartNoAxesGantt } from "lucide-react";
+import { CopyIcon, ChartNoAxesGantt, Sparkles } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 const MonacoEditor = dynamic(() => import("@monaco-editor/react"), {
   ssr: false,
@@ -12,12 +13,21 @@ const MonacoEditor = dynamic(() => import("@monaco-editor/react"), {
 interface JsonEditorProps {
   data: any;
   onCopy?: () => void;
+  projectId?: string;
+  onGenerate?: (data: any) => void;
 }
 
-export function JsonEditor({ data, onCopy }: JsonEditorProps) {
+export function JsonEditor({
+  data,
+  onCopy,
+  projectId,
+  onGenerate,
+}: JsonEditorProps) {
   const [jsonValue, setJsonValue] = useState(JSON.stringify(data, null, 2));
   const [isValid, setIsValid] = useState(true);
   const [error, setError] = useState("");
+  const [isGenerating, setIsGenerating] = useState(false);
+  const { toast } = useToast();
 
   const handleEditorChange = (value: string | undefined) => {
     const newValue = value || "";
@@ -36,12 +46,6 @@ export function JsonEditor({ data, onCopy }: JsonEditorProps) {
     navigator.clipboard.writeText(jsonValue);
   };
 
-  const handleSaveChanges = () => {
-    if (isValid) {
-      console.log("Saving changes:", JSON.parse(jsonValue));
-    }
-  };
-
   const handleFormatJson = () => {
     if (isValid) {
       try {
@@ -50,6 +54,61 @@ export function JsonEditor({ data, onCopy }: JsonEditorProps) {
       } catch (err) {
         // Do nothing if invalid
       }
+    }
+  };
+
+  const handleGenerateModules = async () => {
+    if (!projectId) {
+      toast({
+        title: "Error",
+        description: "Project ID is required for module generation",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsGenerating(true);
+    try {
+      const response = await fetch(
+        `/api/projects/${projectId}/generate-epics`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to generate modules");
+      }
+
+      const result = await response.json();
+      const generatedData = result.modules;
+
+      // Update the JSON editor with generated data
+      setJsonValue(JSON.stringify(generatedData, null, 2));
+
+      // Call onGenerate callback if provided
+      if (onGenerate) {
+        onGenerate(generatedData);
+      }
+
+      toast({
+        title: "Success",
+        description: "Modules and features generated successfully!",
+      });
+    } catch (error) {
+      console.error("Error generating modules:", error);
+      toast({
+        title: "Error",
+        description:
+          error instanceof Error ? error.message : "Failed to generate modules",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGenerating(false);
     }
   };
 
@@ -76,18 +135,17 @@ export function JsonEditor({ data, onCopy }: JsonEditorProps) {
             <Button variant={"secondary"}>
               <CopyIcon />
             </Button>
-            <button
-              className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 px-3"
-              onClick={handleCopyJson}
-            >
-              Copy JSON
-            </button>
-            <button
-              className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-9 px-3"
-              onClick={handleSaveChanges}
-            >
-              Save Changes
-            </button>
+            {projectId && (
+              <Button
+                variant="outline"
+                onClick={handleGenerateModules}
+                disabled={isGenerating}
+              >
+                <Sparkles className="mr-2 h-4 w-4" />
+                {isGenerating ? "Generating..." : "Generate Modules"}
+              </Button>
+            )}
+            <Button>Save Changes</Button>
           </div>
         </div>
         <div className="bg-black overflow-hidden">

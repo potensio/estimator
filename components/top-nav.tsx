@@ -1,13 +1,13 @@
-"use client"
+"use client";
 
-import Link from "next/link"
-import { usePathname } from "next/navigation"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { cn } from "@/lib/utils"
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { cn } from "@/lib/utils";
 
 export function TopNav() {
-  const pathname = usePathname()
-  const isActive = (href: string) => pathname?.startsWith(href)
+  const pathname = usePathname();
+  const isActive = (href: string) => pathname?.startsWith(href);
 
   return (
     <header className="sticky top-0 z-40 border-b bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -17,7 +17,9 @@ export function TopNav() {
             href="/projects"
             className={cn(
               "text-sm font-medium transition-colors hover:text-foreground",
-              isActive("/projects") ? "text-foreground" : "text-muted-foreground",
+              isActive("/projects")
+                ? "text-foreground"
+                : "text-muted-foreground"
             )}
           >
             Projects
@@ -26,7 +28,9 @@ export function TopNav() {
             href="/settings"
             className={cn(
               "text-sm font-medium transition-colors hover:text-foreground",
-              isActive("/settings") ? "text-foreground" : "text-muted-foreground",
+              isActive("/settings")
+                ? "text-foreground"
+                : "text-muted-foreground"
             )}
           >
             Settings
@@ -44,5 +48,5 @@ export function TopNav() {
         </div>
       </div>
     </header>
-  )
+  );
 }

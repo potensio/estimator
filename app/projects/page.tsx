@@ -25,7 +25,8 @@ export default async function ProjectsPage() {
             include: {
               projects: {
                 include: {
-                  estimates: true
+                  estimates: true,
+                  analysis: true
                 },
                 orderBy: {
                   updatedAt: 'desc'
@@ -50,7 +51,7 @@ export default async function ProjectsPage() {
     id: project.id,
     title: project.name,
     company: workspace.name,
-    clarity: Math.floor(Math.random() * 100), // You can implement actual clarity calculation
+    clarity: project.analysis?.overallClarity || 0, // Use real clarity from analysis
     status: (project.status === 'draft' ? 'Active' : 
             project.status === 'active' ? 'Active' : 
             project.status === 'completed' ? 'Completed' : 'In Progress') as Project['status'],
