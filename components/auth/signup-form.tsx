@@ -13,7 +13,6 @@ interface SignupFormData {
   email: string
   password: string
   name: string
-  workspaceName: string
 }
 
 export function SignupForm() {
@@ -21,8 +20,7 @@ export function SignupForm() {
   const [formData, setFormData] = useState<SignupFormData>({
     email: '',
     password: '',
-    name: '',
-    workspaceName: ''
+    name: ''
   })
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
@@ -68,7 +66,7 @@ export function SignupForm() {
       <CardHeader>
         <CardTitle>Create Account</CardTitle>
         <CardDescription>
-          Sign up to create your workspace and start managing projects
+          Sign up to start managing projects
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -124,22 +122,7 @@ export function SignupForm() {
             </p>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="workspaceName">Workspace Name</Label>
-            <Input
-              id="workspaceName"
-              name="workspaceName"
-              type="text"
-              placeholder="My Company"
-              value={formData.workspaceName}
-              onChange={handleChange}
-              required
-              disabled={isLoading}
-            />
-            <p className="text-sm text-muted-foreground">
-              This will be your team's workspace
-            </p>
-          </div>
+
 
           <Button type="submit" className="w-full" disabled={isLoading}>
             {isLoading ? (

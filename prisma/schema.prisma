@@ -49,19 +49,42 @@ model WorkspaceUser {
 }
 
 model Project {
-  id          String   @id @default(cuid())
-  name        String
-  description String?
-  status      String   @default("draft")
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  userId      String
-  workspaceId String
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  estimates   Estimate[]
-  files       ProjectFile[]
-  analysis    ProjectAnalysis?
+  id              String   @id @default(cuid())
+  name            String
+  description     String?
+  status          String   @default("draft")
+  activeVersionId String?  // Reference to the currently active module version
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  userId          String
+  workspaceId     String
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace       Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  estimates       Estimate[]
+  files           ProjectFile[]
+  analysis        ProjectAnalysis?
+  moduleVersions  ModuleVersion[]
+  activeVersion   ModuleVersion? @relation("ActiveVersion", fields: [activeVersionId], references: [id])
+}
+
+model ModuleVersion {
+  id                    String   @id @default(cuid())
+  version               Int      // Auto-incrementing version number
+  name                  String?  // Optional name for the version (e.g., "Initial Draft", "Revised")
+  modulesData           Json     // The actual modules JSON data
+  baseEstimationHours   Int?     // Base estimation in hours from OpenAI
+  baseFibonacciPoints   Int?     // Base Fibonacci points from OpenAI
+  optimisticLevel       String?  // "optimistic", "realistic", "pessimistic"
+  adjustedEstimationHours Int?   // Adjusted estimation based on optimistic level
+  adjustedFibonacciPoints Int?   // Adjusted Fibonacci points
+  totalEstimatedSprints Decimal? // Calculated sprints based on team velocity
+  teamVelocity          Int?     // Team velocity (points per sprint)
+  createdAt             DateTime @default(now())
+  projectId             String
+  project               Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  activeProjects        Project[] @relation("ActiveVersion")
+  
+  @@unique([projectId, version])
 }
 
 model Estimate {

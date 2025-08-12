@@ -1,10 +1,26 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import dynamic from "next/dynamic";
 import { Button } from "./ui/button";
-import { CopyIcon, ChartNoAxesGantt, Sparkles } from "lucide-react";
+import {
+  CopyIcon,
+  ChartNoAxesGantt,
+  Sparkles,
+  History,
+  ChevronDown,
+  Loader2,
+} from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from "./ui/dropdown-menu";
+import { Badge } from "./ui/badge";
+import { formatDistanceToNow } from "date-fns";
 
 const MonacoEditor = dynamic(() => import("@monaco-editor/react"), {
   ssr: false,
@@ -27,7 +43,71 @@ export function JsonEditor({
   const [isValid, setIsValid] = useState(true);
   const [error, setError] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [versions, setVersions] = useState<any[]>([]);
+  const [activeVersionId, setActiveVersionId] = useState<string | null>(null);
+  const [showVersions, setShowVersions] = useState(false);
   const { toast } = useToast();
+
+  // Add beforeunload warning when generation is in progress
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (isGenerating) {
+        e.preventDefault();
+        e.returnValue =
+          "Module generation is in progress. Are you sure you want to leave?";
+        return "Module generation is in progress. Are you sure you want to leave?";
+      }
+    };
+
+    if (isGenerating) {
+      window.addEventListener("beforeunload", handleBeforeUnload);
+    }
+
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, [isGenerating]);
+
+  // Load existing module versions when component mounts
+  useEffect(() => {
+    if (projectId) {
+      loadModuleVersions();
+    }
+  }, [projectId]);
+
+  const loadModuleVersions = async () => {
+    if (!projectId) return;
+
+    setIsLoading(true);
+    try {
+      const response = await fetch(
+        `/api/projects/${projectId}/module-versions`
+      );
+      if (response.ok) {
+        const result = await response.json();
+        setVersions(result.versions || []);
+        setActiveVersionId(result.activeVersionId);
+
+        // Load latest version by default if no active version
+        if (result.versions.length > 0) {
+          const targetVersion = result.activeVersionId 
+            ? result.versions.find((v: any) => v.id === result.activeVersionId)
+            : result.versions[0]; // Load latest version (first in array)
+          
+          if (targetVersion?.modulesData) {
+            setJsonValue(JSON.stringify(targetVersion.modulesData, null, 2));
+            setActiveVersionId(targetVersion.id);
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Error loading module versions:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleEditorChange = (value: string | undefined) => {
     const newValue = value || "";
@@ -44,6 +124,10 @@ export function JsonEditor({
 
   const handleCopyJson = () => {
     navigator.clipboard.writeText(jsonValue);
+    toast({
+      title: "Success",
+      description: "JSON copied to clipboard!",
+    });
   };
 
   const handleFormatJson = () => {
@@ -51,9 +135,117 @@ export function JsonEditor({
       try {
         const parsed = JSON.parse(jsonValue);
         setJsonValue(JSON.stringify(parsed, null, 2));
+        toast({
+          title: "Success",
+          description: "JSON formatted successfully!",
+        });
       } catch (err) {
         // Do nothing if invalid
       }
+    }
+  };
+
+  const handleUpdateCurrentVersion = async () => {
+    if (!projectId || !activeVersionId) {
+      toast({
+        title: "Error",
+        description: "No active version to update",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!isValid) {
+      toast({
+        title: "Error",
+        description: "Cannot save invalid JSON",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const parsedData = JSON.parse(jsonValue);
+
+      const response = await fetch(
+        `/api/projects/${projectId}/module-versions/${activeVersionId}`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            modulesData: parsedData,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error("Update failed:", errorData);
+        throw new Error(errorData.error || "Failed to update version");
+      }
+
+      const result = await response.json();
+      console.log("Update successful:", result);
+
+      // Refresh versions list
+      await loadModuleVersions();
+
+      toast({
+        title: "Success",
+        description: "Version updated successfully!",
+      });
+
+      return result;
+    } catch (error) {
+      console.error("Error updating version:", error);
+      toast({
+        title: "Error",
+        description:
+          error instanceof Error ? error.message : "Failed to update version",
+        variant: "destructive",
+      });
+      throw error;
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleSwitchVersion = async (versionId: string) => {
+    try {
+      const response = await fetch(
+        `/api/projects/${projectId}/module-versions/${versionId}/activate`,
+        {
+          method: "PUT",
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to switch version");
+      }
+
+      // Find and load the selected version
+      const selectedVersion = versions.find((v) => v.id === versionId);
+      if (selectedVersion?.modulesData) {
+        setJsonValue(JSON.stringify(selectedVersion.modulesData, null, 2));
+        setActiveVersionId(versionId);
+
+        toast({
+          title: "Success",
+          description: `Switched to ${
+            selectedVersion.name || `Version ${selectedVersion.version}`
+          }`,
+        });
+      }
+    } catch (error) {
+      console.error("Error switching version:", error);
+      toast({
+        title: "Error",
+        description: "Failed to switch version",
+        variant: "destructive",
+      });
     }
   };
 
@@ -95,9 +287,24 @@ export function JsonEditor({
         onGenerate(generatedData);
       }
 
+      // Refresh versions list to show the newly saved version
+      await loadModuleVersions();
+
+      // Auto-select the latest version (the one just generated)
+      if (result.version?.id) {
+        setActiveVersionId(result.version.id);
+      }
+
       toast({
         title: "Success",
-        description: "Modules and features generated successfully!",
+        description:
+          result.message || "Modules generated and saved successfully!",
+      });
+
+      console.log("Generated modules saved:", {
+        versionId: result.version?.id,
+        version: result.version?.version,
+        name: result.version?.name,
       });
     } catch (error) {
       console.error("Error generating modules:", error);
@@ -113,7 +320,19 @@ export function JsonEditor({
   };
 
   return (
-    <div className="rounded-lg border bg-card text-card-foreground shadow-sm">
+    <div className="rounded-lg border bg-card text-card-foreground shadow-sm relative">
+      {/* Loading Overlay */}
+      {isGenerating && (
+        <div className="absolute inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center rounded-lg">
+          <div className="bg-white rounded-lg p-6 flex flex-col items-center gap-4 shadow-lg">
+            <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+            <div className="text-center">
+              <p className="font-medium text-gray-900">Generating Modules</p>
+              <p className="text-sm text-gray-500">This may take a few moments...</p>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="p-0">
         <div className="mb-4 flex items-center justify-between px-6 pt-4">
           <div className="flex items-center gap-2">
@@ -121,31 +340,83 @@ export function JsonEditor({
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <div
                 className={`h-2 w-2 rounded-full ${
-                  isValid ? "bg-green-500" : "bg-red-500"
+                  isLoading
+                    ? "bg-yellow-500"
+                    : isValid
+                    ? "bg-green-500"
+                    : "bg-red-500"
                 }`}
               ></div>
-              {isValid ? "Valid" : "Invalid JSON"}
+              {isLoading ? "Loading..." : isValid ? "Valid" : "Invalid JSON"}
             </div>
           </div>
 
           <div className="flex gap-2">
-            <Button variant={"secondary"}>
-              <ChartNoAxesGantt />
+            <Button
+              variant={"secondary"}
+              onClick={handleFormatJson}
+              disabled={!isValid}
+              title="Format JSON"
+            >
+              <ChartNoAxesGantt className="h-4 w-4" />
             </Button>
-            <Button variant={"secondary"}>
-              <CopyIcon />
+            <Button 
+              variant={"secondary"} 
+              onClick={handleCopyJson}
+              title="Copy JSON"
+            >
+              <CopyIcon className="h-4 w-4" />
             </Button>
+            {projectId && versions.length > 0 && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" disabled={isLoading}>
+                    <History className="h-4 w-4" />
+                    {`v.${versions.find((v) => v.id === activeVersionId)?.version || "Current"}`}
+                    <ChevronDown className="ml-2 h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-64">
+                  {versions.map((version) => (
+                    <DropdownMenuItem
+                      key={version.id}
+                      onClick={() => handleSwitchVersion(version.id)}
+                      className="flex items-center justify-between"
+                    >
+                      <div className="flex flex-col">
+                        <span className="font-medium">
+                          v.{version.version}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {formatDistanceToNow(new Date(version.createdAt), { addSuffix: true })}
+                        </span>
+                      </div>
+                      {version.id === activeVersionId && (
+                        <Badge variant="secondary" className="text-xs">
+                          Active
+                        </Badge>
+                      )}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
             {projectId && (
               <Button
                 variant="outline"
                 onClick={handleGenerateModules}
-                disabled={isGenerating}
+                disabled={isGenerating || isLoading}
               >
-                <Sparkles className="mr-2 h-4 w-4" />
+                <Sparkles className="h-4 w-4" />
                 {isGenerating ? "Generating..." : "Generate Modules"}
               </Button>
             )}
-            <Button>Save Changes</Button>
+            <Button
+              onClick={handleUpdateCurrentVersion}
+              disabled={isSaving || !isValid || isLoading || !projectId || !activeVersionId}
+            >
+              {isSaving ? "Saving..." : "Save Changes"}
+            </Button>
           </div>
         </div>
         <div className="bg-black overflow-hidden">
@@ -159,7 +430,7 @@ export function JsonEditor({
               options={{
                 minimap: { enabled: false },
                 scrollBeyondLastLine: false,
-                fontSize: 14,
+                fontSize: 12,
                 lineNumbers: "on",
                 wordWrap: "on",
                 automaticLayout: true,

@@ -5,12 +5,12 @@ import { hashPassword, createToken, setAuthCookie, isValidEmail, isValidPassword
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { email, password, name, workspaceName } = body
+    const { email, password, name } = body
 
     // Validate input
-    if (!email || !password || !name || !workspaceName) {
+    if (!email || !password || !name) {
       return NextResponse.json(
-        { error: 'Email, password, name, and workspace name are required' },
+        { error: 'Email, password, and name are required' },
         { status: 400 }
       )
     }
@@ -41,25 +41,25 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Generate workspace slug
-    const workspaceSlug = generateSlug(workspaceName)
+    // Auto-assign to specific workspace
+    const defaultWorkspaceId = 'cme6kat59000llg0ptd8ud87b'
     
-    // Check if workspace slug already exists
-    const existingWorkspace = await prisma.workspace.findUnique({
-      where: { slug: workspaceSlug }
+    // Check if the default workspace exists
+    const defaultWorkspace = await prisma.workspace.findUnique({
+      where: { id: defaultWorkspaceId }
     })
 
-    if (existingWorkspace) {
+    if (!defaultWorkspace) {
       return NextResponse.json(
-        { error: 'Workspace name already taken, please choose another' },
-        { status: 409 }
+        { error: 'Default workspace not found' },
+        { status: 500 }
       )
     }
 
     // Hash password
     const hashedPassword = await hashPassword(password)
 
-    // Create user and workspace in a transaction
+    // Create user and assign to workspace in a transaction
     const result = await prisma.$transaction(async (tx) => {
       // Create user
       const user = await tx.user.create({
@@ -70,24 +70,16 @@ export async function POST(request: NextRequest) {
         }
       })
 
-      // Create workspace
-      const workspace = await tx.workspace.create({
-        data: {
-          name: workspaceName,
-          slug: workspaceSlug
-        }
-      })
-
-      // Add user to workspace
+      // Add user to default workspace
       await tx.workspaceUser.create({
         data: {
           userId: user.id,
-          workspaceId: workspace.id,
-          role: 'owner'
+          workspaceId: defaultWorkspaceId,
+          role: 'member'
         }
       })
 
-      return { user, workspace }
+      return { user, workspace: defaultWorkspace }
     })
 
     // Create JWT token
@@ -101,7 +93,7 @@ export async function POST(request: NextRequest) {
     await setAuthCookie(token)
 
     return NextResponse.json({
-      message: 'User and workspace created successfully',
+      message: 'User created and assigned to workspace successfully',
       user: {
         id: result.user.id,
         email: result.user.email,

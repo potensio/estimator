@@ -16,12 +16,15 @@ import {
   FileText,
   BarChart3,
   Code,
+  Calculator,
 } from "lucide-react";
 
 import { JsonEditor } from "@/components/json-editor";
 import Link from "next/link";
 import { ProjectUploader } from "@/components/project-uploader";
 import { ProjectAnalysis } from "@/components/project-analysis";
+import { EditProjectDialog } from "@/components/edit-project-dialog";
+import { FibonacciEstimation } from "@/components/fibonacci-estimation";
 
 import { getCurrentUser } from "@/lib/auth";
 import { redirect } from "next/navigation";
@@ -52,45 +55,79 @@ type Project = {
     uploadedAt: Date;
   }[];
   estimatesCount: number;
+  activeVersion?: {
+    id: string;
+    version: number;
+    name: string | null;
+    modulesData: any;
+    createdAt: Date;
+  } | null;
 };
 
 async function getProject(id: string, userId: string): Promise<Project | null> {
   try {
-    const project = await prisma.project.findFirst({
-      where: {
-        id,
-        userId: userId,
-      },
+    // First, get user's workspace to ensure proper access control
+    const userWithWorkspace = await prisma.user.findUnique({
+      where: { id: userId },
       include: {
-        workspace: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
-        },
-        files: {
-          select: {
-            id: true,
-            filename: true,
-            fileSize: true,
-            mimeType: true,
-            uploadedAt: true,
-          },
-        },
-        _count: {
-          select: {
-            estimates: true,
+        workspaces: {
+          include: {
+            workspace: {
+              include: {
+                projects: {
+                  where: { id },
+                  include: {
+                    workspace: {
+                      select: {
+                        id: true,
+                        name: true,
+                      },
+                    },
+                    user: {
+                      select: {
+                        id: true,
+                        name: true,
+                        email: true,
+                      },
+                    },
+                    files: {
+                      select: {
+                        id: true,
+                        filename: true,
+                        fileSize: true,
+                        mimeType: true,
+                        uploadedAt: true,
+                      },
+                    },
+                    _count: {
+                      select: {
+                        estimates: true,
+                      },
+                    },
+                    activeVersion: {
+                      select: {
+                        id: true,
+                        version: true,
+                        name: true,
+                        modulesData: true,
+                        createdAt: true,
+                      },
+                    },
+                  },
+                },
+              },
+            },
           },
         },
       },
     });
+
+    if (!userWithWorkspace || !userWithWorkspace.workspaces[0]) {
+      return null;
+    }
+
+    const workspace = userWithWorkspace.workspaces[0].workspace;
+    const project = workspace.projects.find(p => p.id === id);
 
     if (!project) {
       return null;
@@ -99,6 +136,7 @@ async function getProject(id: string, userId: string): Promise<Project | null> {
     return {
       ...project,
       estimatesCount: project._count.estimates,
+      activeVersion: project.activeVersion,
     };
   } catch (error) {
     console.error("Error fetching project:", error);
@@ -159,27 +197,25 @@ export default async function ProjectDetailPage({
             <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
               {title}
             </h1>
-            <p className="text-muted-foreground">
-              Created on{" "}
-              {new Date(project.createdAt).toLocaleDateString("en-US", {
-                month: "long",
-                day: "numeric",
-                year: "numeric",
-              })}
-            </p>
+            {project.description && (
+              <p className="text-muted-foreground">
+                Client: {project.description}
+              </p>
+            )}
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="outline">
-              <Edit className="mr-2 h-4 w-4" />
-              Edit Project
-            </Button>
+            <EditProjectDialog 
+              projectId={project.id}
+              currentName={project.name}
+              currentDescription={project.description || undefined}
+            />
           </div>
         </div>
       </div>
 
       {/* Content */}
       <Tabs defaultValue="documents" className="w-full">
-        <TabsList className="grid w-full md:w-fit grid-cols-3">
+        <TabsList className="grid w-full md:w-fit grid-cols-4">
           <TabsTrigger value="documents" className="flex items-center gap-2">
             <FileText className="h-4 w-4" />
             Documents
@@ -191,6 +227,10 @@ export default async function ProjectDetailPage({
           <TabsTrigger value="epics" className="flex items-center gap-2">
             <Code className="h-4 w-4" />
             Epics & Stories
+          </TabsTrigger>
+          <TabsTrigger value="estimation" className="flex items-center gap-2">
+            <Calculator className="h-4 w-4" />
+            Estimation
           </TabsTrigger>
         </TabsList>
 
@@ -209,6 +249,13 @@ export default async function ProjectDetailPage({
           <div className="space-y-6">
             <JsonEditor projectId={project.id} data={{}} />
           </div>
+        </TabsContent>
+
+        <TabsContent value="estimation" className="mt-6">
+          <FibonacciEstimation 
+            projectId={project.id} 
+            moduleVersion={project.activeVersion}
+          />
         </TabsContent>
       </Tabs>
     </div>

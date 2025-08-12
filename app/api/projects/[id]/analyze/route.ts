@@ -110,6 +110,7 @@ export async function POST(
         overallClarity: analysisData.overallClarity || 0,
         missingItems: analysisData.missingItems || [],
         projectSummary: analysisData.projectSummary || null,
+        analyzedAt: new Date(),
       },
     });
 
@@ -124,7 +125,7 @@ export async function POST(
         overallClarity: savedAnalysis.overallClarity,
         missingItems: savedAnalysis.missingItems,
         summary: savedAnalysis.projectSummary || "",
-        analyzedAt: savedAnalysis.createdAt,
+        analyzedAt: savedAnalysis.analyzedAt,
       },
     });
   } catch (error) {

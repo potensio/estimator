@@ -2,10 +2,20 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
+import { UserMenu } from "@/components/user-menu";
 
-export function TopNav() {
+interface TopNavProps {
+  user?: {
+    name: string;
+    email: string;
+  };
+  workspace?: {
+    name: string;
+  };
+}
+
+export function TopNav({ user, workspace }: TopNavProps) {
   const pathname = usePathname();
   const isActive = (href: string) => pathname?.startsWith(href);
 
@@ -24,28 +34,23 @@ export function TopNav() {
           >
             Projects
           </Link>
-          <Link
-            href="/settings"
+          <span
             className={cn(
-              "text-sm font-medium transition-colors hover:text-foreground",
-              isActive("/settings")
-                ? "text-foreground"
-                : "text-muted-foreground"
+              "text-sm font-medium text-muted-foreground/50 cursor-not-allowed"
             )}
           >
             Settings
-          </Link>
+          </span>
         </nav>
 
-        <div className="flex items-center gap-3">
-          <div className="text-right leading-tight">
-            <div className="text-sm font-medium">John Doe</div>
-            <div className="text-xs text-muted-foreground">Project Manager</div>
+        {user && workspace && (
+          <div className="flex items-center gap-3">
+            <span className="text-sm font-medium text-foreground hidden sm:block">
+              {user.name}
+            </span>
+            <UserMenu user={user} workspace={workspace} />
           </div>
-          <Avatar className="h-8 w-8 sm:h-9 sm:w-9">
-            <AvatarFallback className="text-xs">JD</AvatarFallback>
-          </Avatar>
-        </div>
+        )}
       </div>
     </header>
   );

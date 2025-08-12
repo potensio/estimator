@@ -68,9 +68,45 @@ export async function POST(
       fileIds
     );
 
+    // Get the next version number
+    const lastVersion = await prisma.moduleVersion.findFirst({
+      where: { projectId: id },
+      orderBy: { version: 'desc' },
+      select: { version: true },
+    });
+
+    const nextVersion = (lastVersion?.version || 0) + 1;
+    const versionName = `Generated ${new Date().toLocaleString()}`;
+
+    // Save generated modules directly to database
+    const newVersion = await prisma.moduleVersion.create({
+      data: {
+        projectId: id,
+        version: nextVersion,
+        name: versionName,
+        modulesData,
+      },
+    });
+
+    // Update project to set this as the active version
+    await prisma.project.update({
+      where: { id },
+      data: { activeVersionId: newVersion.id },
+    });
+
+    console.log('Generated modules saved to database:', {
+      versionId: newVersion.id,
+      version: newVersion.version,
+      name: newVersion.name,
+      dataSize: JSON.stringify(modulesData).length,
+      setAsActive: true
+    });
+
     return NextResponse.json({
       success: true,
       modules: modulesData,
+      version: newVersion,
+      message: `Modules generated and saved as ${versionName}`
     });
   } catch (error) {
     console.error("Epic generation error:", error);

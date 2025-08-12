@@ -158,15 +158,17 @@ Respond ONLY in this JSON format:
     const assistant = await openai.beta.assistants.create({
       name: "Project Analyzer",
       instructions: prompt,
-      model: "gpt-5-mini",
+      model: "gpt-4.1-mini",
       tools: [{ type: "file_search" }],
       tool_resources: {
         file_search: {
-          vector_stores: [{
-            file_ids: fileIds
-          }]
-        }
-      }
+          vector_stores: [
+            {
+              file_ids: fileIds,
+            },
+          ],
+        },
+      },
     });
 
     // Create thread and run
@@ -174,31 +176,43 @@ Respond ONLY in this JSON format:
       messages: [
         {
           role: "user",
-          content: "Please analyze the uploaded project documents according to the instructions."
-        }
-      ]
+          content:
+            "Please analyze the uploaded project documents according to the instructions.",
+        },
+      ],
     });
 
     const run = await openai.beta.threads.runs.create(thread.id, {
-      assistant_id: assistant.id
+      assistant_id: assistant.id,
     });
 
     // Wait for completion
-    let runStatus = await openai.beta.threads.runs.retrieve(run.id, { thread_id: thread.id });
-    while (runStatus.status === 'queued' || runStatus.status === 'in_progress') {
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      runStatus = await openai.beta.threads.runs.retrieve(run.id, { thread_id: thread.id });
+    let runStatus = await openai.beta.threads.runs.retrieve(run.id, {
+      thread_id: thread.id,
+    });
+    while (
+      runStatus.status === "queued" ||
+      runStatus.status === "in_progress"
+    ) {
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      runStatus = await openai.beta.threads.runs.retrieve(run.id, {
+        thread_id: thread.id,
+      });
     }
 
-    if (runStatus.status !== 'completed') {
+    if (runStatus.status !== "completed") {
       throw new Error(`Analysis failed with status: ${runStatus.status}`);
     }
 
     // Get messages
     const messages = await openai.beta.threads.messages.list(thread.id);
     const lastMessage = messages.data[0];
-    
-    if (!lastMessage || !lastMessage.content[0] || lastMessage.content[0].type !== 'text') {
+
+    if (
+      !lastMessage ||
+      !lastMessage.content[0] ||
+      lastMessage.content[0].type !== "text"
+    ) {
       throw new Error("No valid response from assistant");
     }
 
@@ -218,7 +232,7 @@ Respond ONLY in this JSON format:
       console.error("Failed to parse JSON response:", content);
       throw new Error("Invalid JSON response from OpenAI");
     }
-    
+
     return {
       functionalCoverage: analysisData.functionalCoverage || 0,
       businessCoverage: analysisData.businessCoverage || 0,
@@ -235,16 +249,23 @@ Respond ONLY in this JSON format:
 }
 
 // Timeout wrapper function
-async function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
+async function withTimeout<T>(
+  promise: Promise<T>,
+  timeoutMs: number
+): Promise<T> {
   const timeout = new Promise<never>((_, reject) => {
-    setTimeout(() => reject(new Error('Operation timed out')), timeoutMs);
+    setTimeout(() => reject(new Error("Operation timed out")), timeoutMs);
   });
-  
+
   return Promise.race([promise, timeout]);
 }
 
 // Enhanced generation with retry logic
-async function generateWithRetry(prompt: string, fileIds: string[], maxRetries = 3) {
+async function generateWithRetry(
+  prompt: string,
+  fileIds: string[],
+  maxRetries = 3
+) {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       return await withTimeout(
@@ -253,11 +274,11 @@ async function generateWithRetry(prompt: string, fileIds: string[], maxRetries =
       );
     } catch (error) {
       console.log(`Attempt ${attempt} failed:`, error);
-      
+
       if (attempt === maxRetries) throw error;
-      
+
       // Exponential backoff
-      await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+      await new Promise((resolve) => setTimeout(resolve, 1000 * attempt));
     }
   }
 }
@@ -266,100 +287,119 @@ async function generateWithRetry(prompt: string, fileIds: string[], maxRetries =
 async function generateSingleRequest(prompt: string, fileIds: string[]) {
   let assistant;
   try {
-    console.log('Creating OpenAI assistant...');
+    console.log("Creating OpenAI assistant...");
     assistant = await openai.beta.assistants.create({
       name: "Module Generator",
       instructions: prompt,
-      model: "gpt-4o",
+      model: "gpt-4.1-mini",
       tools: [{ type: "file_search" }],
       tool_resources: {
         file_search: {
-          vector_stores: [{
-            file_ids: fileIds
-          }]
-        }
-      }
+          vector_stores: [
+            {
+              file_ids: fileIds,
+            },
+          ],
+        },
+      },
     });
-    console.log('Assistant created:', assistant.id);
+    console.log("Assistant created:", assistant.id);
 
-    console.log('Creating thread...');
+    console.log("Creating thread...");
     const thread = await openai.beta.threads.create({
       messages: [
         {
           role: "user",
-          content: "Please generate the requested breakdown based on the uploaded project documents."
-        }
-      ]
+          content:
+            "Please generate the requested breakdown based on the uploaded project documents.",
+        },
+      ],
     });
-    console.log('Thread created:', thread.id);
+    console.log("Thread created:", thread.id);
 
-    console.log('Starting run...');
+    console.log("Starting run...");
     const run = await openai.beta.threads.runs.create(thread.id, {
-      assistant_id: assistant.id
+      assistant_id: assistant.id,
     });
-    console.log('Run started:', run.id);
+    console.log("Run started:", run.id);
 
     // Wait for completion with better logging
-    let runStatus = await openai.beta.threads.runs.retrieve(run.id, { thread_id: thread.id });
+    let runStatus = await openai.beta.threads.runs.retrieve(run.id, {
+      thread_id: thread.id,
+    });
     let attempts = 0;
     const maxAttempts = 120; // 2 minutes with 1 second intervals
-    
-    while (runStatus.status === 'queued' || runStatus.status === 'in_progress') {
+
+    while (
+      runStatus.status === "queued" ||
+      runStatus.status === "in_progress"
+    ) {
       attempts++;
       if (attempts > maxAttempts) {
-        throw new Error('OpenAI run exceeded maximum wait time');
+        throw new Error("OpenAI run exceeded maximum wait time");
       }
-      
+
       if (attempts % 10 === 0) {
-        console.log(`Waiting for completion... Status: ${runStatus.status} (${attempts}s)`);
+        console.log(
+          `Waiting for completion... Status: ${runStatus.status} (${attempts}s)`
+        );
       }
-      
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      runStatus = await openai.beta.threads.runs.retrieve(run.id, { thread_id: thread.id });
+
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      runStatus = await openai.beta.threads.runs.retrieve(run.id, {
+        thread_id: thread.id,
+      });
     }
 
-    console.log('Run completed with status:', runStatus.status);
+    console.log("Run completed with status:", runStatus.status);
 
-    if (runStatus.status !== 'completed') {
-      if (runStatus.status === 'failed') {
-        console.error('Run failed with error:', runStatus.last_error);
+    if (runStatus.status !== "completed") {
+      if (runStatus.status === "failed") {
+        console.error("Run failed with error:", runStatus.last_error);
       }
       throw new Error(`Generation failed with status: ${runStatus.status}`);
     }
 
-    console.log('Retrieving messages...');
+    console.log("Retrieving messages...");
     const messages = await openai.beta.threads.messages.list(thread.id);
     const lastMessage = messages.data[0];
-    
-    if (!lastMessage || !lastMessage.content[0] || lastMessage.content[0].type !== 'text') {
+
+    if (
+      !lastMessage ||
+      !lastMessage.content[0] ||
+      lastMessage.content[0].type !== "text"
+    ) {
       throw new Error("No valid response from assistant");
     }
 
     const content = lastMessage.content[0].text.value;
-    console.log('Response received, length:', content.length);
+    console.log("Response received, length:", content.length);
 
     // Parse JSON response
     try {
       const jsonMatch = content.match(/\{[\s\S]*\}/);
       const jsonString = jsonMatch ? jsonMatch[0] : content;
       const parsed = JSON.parse(jsonString);
-      console.log('JSON parsed successfully');
+      console.log("JSON parsed successfully");
       return parsed;
     } catch (parseError) {
-      console.error("Failed to parse JSON response:", content.substring(0, 500) + '...');
+      console.error(
+        "Failed to parse JSON response:",
+        content.substring(0, 500) + "..."
+      );
       throw new Error("Invalid JSON response from OpenAI");
     }
   } catch (error) {
-    console.error('Error in generateSingleRequest:', error);
+    console.error("Error in generateSingleRequest:", error);
     throw error;
   } finally {
     // Clean up assistant
     if (assistant) {
       try {
         await openai.beta.assistants.delete(assistant.id);
-        console.log('Assistant cleaned up');
+        console.log("Assistant cleaned up");
       } catch (cleanupError) {
-        console.error('Failed to cleanup assistant:', cleanupError);
+        console.error("Failed to cleanup assistant:", cleanupError);
       }
     }
   }
@@ -408,19 +448,30 @@ export async function generateModuleDetails(
   fileIds: string[]
 ): Promise<any> {
   const prompt = `
-You are a senior software architect. Focus ONLY on module: ${moduleName}
-Generate ALL features and sub-features for this specific module.
+You are a senior software architect and estimation expert. Focus ONLY on module: ${moduleName}
+Generate ALL features and sub-features for this specific module with Fibonacci point estimation.
 
 Module: ${moduleName}
 Description: ${moduleDescription}
 
+FIBONACCI ESTIMATION GUIDE:
+- 1 point (2 hours): Very simple task (basic CRUD, simple UI)
+- 2 points (4 hours): Simple task (form validation, basic API)
+- 3 points (6 hours): Small task (authentication flow, data processing)
+- 5 points (14 hours): Medium task (complex business logic, integrations)
+- 8 points (20 hours): Large task (full feature with multiple components)
+- 13 points (34 hours): Very large task (complex system integration)
+- 21 points (54 hours): Epic task (major feature with many dependencies)
+- 34+ points: Should be broken down into smaller features
+
 INSTRUCTIONS:
 1. Generate comprehensive features for this module only
 2. Break down each feature into specific sub-features
-3. Include technical considerations
-4. Think like a developer - what needs to be built?
-5. Include edge cases and error handling
-6. You MUST respond ONLY with valid JSON, no additional text
+3. Estimate each feature AND sub-feature using Fibonacci points
+4. Include technical considerations and complexity reasoning
+5. Think like a developer - what needs to be built?
+6. Include edge cases and error handling
+7. You MUST respond ONLY with valid JSON, no additional text
 
 Respond ONLY in this JSON format:
 {
@@ -433,18 +484,35 @@ Respond ONLY in this JSON format:
       "name": "Feature Name",
       "description": "Detailed feature description",
       "complexity": "low|medium|high",
+      "estimation": {
+        "fibonacci_points": 8,
+        "estimated_hours": 20,
+        "confidence_level": "medium",
+        "reasoning": "Explanation of why this estimation was chosen"
+      },
       "sub_features": [
         {
           "id": "sub-001",
           "name": "Sub-feature Name",
           "description": "Specific implementation detail",
-          "technical_notes": "Any technical considerations"
+          "technical_notes": "Any technical considerations",
+          "estimation": {
+            "fibonacci_points": 3,
+            "estimated_hours": 6,
+            "reasoning": "Explanation for sub-feature estimation"
+          }
         }
       ],
       "dependencies": ["other-feature-ids"],
       "integrations": ["external systems if any"]
     }
-  ]
+  ],
+  "module_totals": {
+    "total_fibonacci_points": 0,
+    "total_estimated_hours": 0,
+    "feature_count": 0,
+    "sub_feature_count": 0
+  }
 }
 `;
 
@@ -458,60 +526,77 @@ export async function generateModulesWithOpenAI(
   fileIds: string[]
 ): Promise<any> {
   try {
-    console.log('Starting module generation for project:', projectName);
-    console.log('File IDs available:', fileIds.length);
-    
+    console.log("Starting module generation for project:", projectName);
+    console.log("File IDs available:", fileIds.length);
+
     // Check if OpenAI API key is available
     if (!process.env.OPENAI_API_KEY) {
-      throw new Error('OpenAI API key not configured');
+      throw new Error("OpenAI API key not configured");
     }
-    
+
     // Step 1: Generate high-level modules first
-    console.log('Generating modules overview...');
+    console.log("Generating modules overview...");
     let modulesOverview;
     try {
-      modulesOverview = await generateModulesOverview(projectName, projectDescription, fileIds);
+      modulesOverview = await generateModulesOverview(
+        projectName,
+        projectDescription,
+        fileIds
+      );
     } catch (overviewError) {
-      console.error('Failed to generate overview, using fallback:', overviewError);
+      console.error(
+        "Failed to generate overview, using fallback:",
+        overviewError
+      );
       // Fallback to basic structure
       modulesOverview = {
         modules: [
           {
-            id: 'module-001',
-            name: 'Core System',
-            description: 'Main application functionality',
-            estimated_features: 5
+            id: "module-001",
+            name: "Core System",
+            description: "Main application functionality",
+            estimated_features: 5,
           },
           {
-            id: 'module-002', 
-            name: 'User Management',
-            description: 'User authentication and profile management',
-            estimated_features: 3
+            id: "module-002",
+            name: "User Management",
+            description: "User authentication and profile management",
+            estimated_features: 3,
           },
           {
-            id: 'module-003',
-            name: 'Data Management',
-            description: 'Data processing and storage',
-            estimated_features: 4
-          }
-        ]
+            id: "module-003",
+            name: "Data Management",
+            description: "Data processing and storage",
+            estimated_features: 4,
+          },
+        ],
       };
     }
-    
-    if (!modulesOverview || !modulesOverview.modules || modulesOverview.modules.length === 0) {
-      throw new Error('Failed to generate modules overview or no modules found');
+
+    if (
+      !modulesOverview ||
+      !modulesOverview.modules ||
+      modulesOverview.modules.length === 0
+    ) {
+      throw new Error(
+        "Failed to generate modules overview or no modules found"
+      );
     }
-    
+
     console.log(`Generated ${modulesOverview.modules.length} modules overview`);
-    
+
     // Step 2: Generate detailed features for each module separately
     const detailedModules = [];
     const failedModules = [];
-    
+
     for (let i = 0; i < modulesOverview.modules.length; i++) {
       const module = modulesOverview.modules[i];
       try {
-        console.log(`Generating details for module ${i + 1}/${modulesOverview.modules.length}: ${module.name}`);
+        console.log(
+          `Generating details for module ${i + 1}/${
+            modulesOverview.modules.length
+          }: ${module.name}`
+        );
         const detailedModule = await generateModuleDetails(
           module.id,
           module.name,
@@ -519,13 +604,16 @@ export async function generateModulesWithOpenAI(
           fileIds
         );
         detailedModules.push(detailedModule);
-        
+
         // Add delay to avoid rate limiting
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        await new Promise((resolve) => setTimeout(resolve, 2000));
       } catch (moduleError) {
-        console.error(`Failed to generate details for module ${module.name}:`, moduleError);
+        console.error(
+          `Failed to generate details for module ${module.name}:`,
+          moduleError
+        );
         failedModules.push(module.name);
-        
+
         // Add basic module structure as fallback
         detailedModules.push({
           id: module.id,
@@ -536,42 +624,43 @@ export async function generateModulesWithOpenAI(
               id: `${module.id}_basic_001`,
               name: `${module.name} Core Features`,
               description: `Essential functionality for ${module.name}`,
-              complexity: 'medium',
+              complexity: "medium",
               sub_features: [
                 {
                   id: `${module.id}_sub_001`,
-                  name: 'Basic Implementation',
-                  description: 'Core implementation requirements',
-                  technical_notes: 'Standard implementation approach'
-                }
+                  name: "Basic Implementation",
+                  description: "Core implementation requirements",
+                  technical_notes: "Standard implementation approach",
+                },
               ],
               dependencies: [],
-              integrations: []
+              integrations: [],
             },
             {
               id: `${module.id}_basic_002`,
               name: `${module.name} Configuration`,
               description: `Configuration and setup for ${module.name}`,
-              complexity: 'low',
+              complexity: "low",
               sub_features: [
                 {
                   id: `${module.id}_sub_002`,
-                  name: 'Configuration Setup',
-                  description: 'Initial configuration requirements',
-                  technical_notes: 'Configuration management'
-                }
+                  name: "Configuration Setup",
+                  description: "Initial configuration requirements",
+                  technical_notes: "Configuration management",
+                },
               ],
               dependencies: [],
-              integrations: []
-            }
+              integrations: [],
+            },
           ],
-          complexity: 'medium',
+          complexity: "medium",
           dependencies: [],
-          technical_notes: 'Details generation failed - comprehensive fallback structure provided'
+          technical_notes:
+            "Details generation failed - comprehensive fallback structure provided",
         });
       }
     }
-    
+
     const result = {
       modules: detailedModules,
       metadata: {
@@ -579,110 +668,103 @@ export async function generateModulesWithOpenAI(
         total_modules: detailedModules.length,
         project_name: projectName,
         failed_modules: failedModules,
-        generation_status: failedModules.length > 0 ? 'partial_success' : 'success',
-        fallback_used: failedModules.length > 0
-      }
+        generation_status:
+          failedModules.length > 0 ? "partial_success" : "success",
+        fallback_used: failedModules.length > 0,
+      },
     };
-    
-    console.log('Module generation completed:', {
+
+    console.log("Module generation completed:", {
       total: detailedModules.length,
       failed: failedModules.length,
-      status: result.metadata.generation_status
+      status: result.metadata.generation_status,
     });
-    
+
     return result;
   } catch (error) {
-    console.error('Error in chunked module generation:', error);
-    
+    console.error("Error in chunked module generation:", error);
+
     // Ultimate fallback - return basic structure
-    console.log('Using ultimate fallback structure');
+    console.log("Using ultimate fallback structure");
     return {
       modules: [
         {
-          id: 'fallback-001',
-          name: 'Application Core',
-          description: 'Main application functionality and business logic',
+          id: "fallback-001",
+          name: "Application Core",
+          description: "Main application functionality and business logic",
           features: [
             {
-              id: 'fallback-001-f001',
-              name: 'Core Business Logic',
-              description: 'Essential business rules and processing',
-              complexity: 'high',
+              id: "fallback-001-f001",
+              name: "Core Business Logic",
+              description: "Essential business rules and processing",
+              complexity: "high",
               sub_features: [
                 {
-                  id: 'fallback-001-sf001',
-                  name: 'Business Rule Engine',
-                  description: 'Implementation of core business rules',
-                  technical_notes: 'Requires careful design and testing'
-                }
+                  id: "fallback-001-sf001",
+                  name: "Business Rule Engine",
+                  description: "Implementation of core business rules",
+                  technical_notes: "Requires careful design and testing",
+                },
               ],
               dependencies: [],
-              integrations: []
-            }
+              integrations: [],
+            },
           ],
-          complexity: 'high',
+          complexity: "high",
           dependencies: [],
-          technical_notes: 'Fallback structure - requires manual refinement'
+          technical_notes: "Fallback structure - requires manual refinement",
         },
         {
-          id: 'fallback-002',
-          name: 'User Interface',
-          description: 'User interface components and interactions',
+          id: "fallback-002",
+          name: "User Interface",
+          description: "User interface components and interactions",
           features: [
             {
-              id: 'fallback-002-f001',
-              name: 'UI Components',
-              description: 'Reusable user interface components',
-              complexity: 'medium',
+              id: "fallback-002-f001",
+              name: "UI Components",
+              description: "Reusable user interface components",
+              complexity: "medium",
               sub_features: [
                 {
-                  id: 'fallback-002-sf001',
-                  name: 'Component Library',
-                  description: 'Standardized UI component set',
-                  technical_notes: 'Follow design system guidelines'
-                }
+                  id: "fallback-002-sf001",
+                  name: "Component Library",
+                  description: "Standardized UI component set",
+                  technical_notes: "Follow design system guidelines",
+                },
               ],
               dependencies: [],
-              integrations: []
-            }
+              integrations: [],
+            },
           ],
-          complexity: 'medium',
-          dependencies: ['fallback-001'],
-          technical_notes: 'Fallback structure - requires manual refinement'
-        }
+          complexity: "medium",
+          dependencies: ["fallback-001"],
+          technical_notes: "Fallback structure - requires manual refinement",
+        },
       ],
       metadata: {
         generated_at: new Date().toISOString(),
         total_modules: 2,
         project_name: projectName,
         failed_modules: [],
-        generation_status: 'fallback',
+        generation_status: "fallback",
         fallback_used: true,
-        error_message: error instanceof Error ? error.message : 'Unknown error'
-      }
+        error_message: error instanceof Error ? error.message : "Unknown error",
+      },
     };
   }
 }
 
-
-
 const ANALYSIS_CHECKLIST = {
   functional: [
     "User roles and permissions",
-    "Core features and functionality", 
-    "Integration requirements"
+    "Core features and functionality",
+    "Integration requirements",
   ],
-  business: [
-    "Target users and personas",
-    "Business objectives and goals"
-  ],
-  userExperience: [
-    "User interface requirements",
-    "Device requirements"
-  ],
+  business: ["Target users and personas", "Business objectives and goals"],
+  userExperience: ["User interface requirements", "Device requirements"],
   scope: [
     "Project timeline and phases",
     "Risk factors",
-    "Dependencies and assumptions"
-  ]
+    "Dependencies and assumptions",
+  ],
 };

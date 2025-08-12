@@ -4,7 +4,7 @@ import type React from "react";
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus } from "lucide-react";
+import { Edit } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -19,10 +19,16 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
-export function NewProjectDialog() {
+interface EditProjectDialogProps {
+  projectId: string;
+  currentName: string;
+  currentDescription?: string;
+}
+
+export function EditProjectDialog({ projectId, currentName, currentDescription }: EditProjectDialogProps) {
   const [open, setOpen] = useState(false);
-  const [projectName, setProjectName] = useState("");
-  const [description, setDescription] = useState("");
+  const [projectName, setProjectName] = useState(currentName);
+  const [description, setDescription] = useState(currentDescription || "");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const router = useRouter();
@@ -33,8 +39,8 @@ export function NewProjectDialog() {
     setError("");
 
     try {
-      const response = await fetch("/api/projects", {
-        method: "POST",
+      const response = await fetch(`/api/projects/${projectId}`, {
+        method: "PUT",
         headers: {
           "Content-Type": "application/json",
         },
@@ -47,13 +53,11 @@ export function NewProjectDialog() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || "Failed to create project");
+        throw new Error(data.error || "Failed to update project");
       }
 
       // Success - close dialog and refresh
       setOpen(false);
-      setProjectName("");
-      setDescription("");
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
@@ -62,22 +66,22 @@ export function NewProjectDialog() {
     }
   }
 
-  const canCreate = projectName.trim().length > 0;
+  const canUpdate = projectName.trim().length > 0;
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button className="whitespace-nowrap">
-          <Plus className="mr-2 h-4 w-4" />
-          New Project
+        <Button variant="outline">
+          <Edit className="mr-2 h-4 w-4" />
+          Edit Project
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <form onSubmit={onSubmit} className="space-y-6">
           <DialogHeader>
-            <DialogTitle>Create Project</DialogTitle>
+            <DialogTitle>Edit Project</DialogTitle>
             <DialogDescription>
-              Enter the basic details to create a new project.
+              Update the project name and client information.
             </DialogDescription>
           </DialogHeader>
 
@@ -117,8 +121,8 @@ export function NewProjectDialog() {
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={!canCreate || isLoading}>
-              {isLoading ? "Creating..." : "Create Project"}
+            <Button type="submit" disabled={!canUpdate || isLoading}>
+              {isLoading ? "Updating..." : "Update Project"}
             </Button>
           </DialogFooter>
         </form>
