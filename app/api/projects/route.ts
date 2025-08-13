@@ -120,7 +120,8 @@ export async function GET(request: NextRequest) {
               include: {
                 projects: {
                   include: {
-                    estimates: true
+                    estimates: true,
+                    analysis: true
                   },
                   orderBy: {
                     updatedAt: 'desc'
@@ -143,21 +144,26 @@ export async function GET(request: NextRequest) {
     const workspace = userWithWorkspace.workspaces[0].workspace
     const projects = workspace.projects
 
+    // Transform projects to match the expected format for ProjectsClient
+    const transformedProjects = projects.map((project: any) => ({
+      id: project.id,
+      title: project.name,
+      company: project.description || 'No client specified',
+      clarity: project.analysis?.overallClarity || 0, // Use analysis clarity or 0 if no analysis
+      status: (project.status === 'draft' ? 'Active' : 
+              project.status === 'active' ? 'Active' : 
+              project.status === 'completed' ? 'Completed' : 'In Progress') as 'Active' | 'Completed' | 'In Progress' | 'On Hold',
+      date: new Date(project.createdAt).toLocaleDateString('en-US', { 
+        month: 'short', 
+        day: 'numeric', 
+        year: 'numeric' 
+      }),
+      href: `/projects/${project.id}`
+    }))
+
     return NextResponse.json({
-      success: true,
-      projects: projects.map((project: any) => ({
-        id: project.id,
-        name: project.name,
-        description: project.description,
-        status: project.status,
-        createdAt: project.createdAt,
-        updatedAt: project.updatedAt,
-        estimatesCount: project.estimates.length
-      })),
-      workspace: {
-        id: workspace.id,
-        name: workspace.name
-      }
+      projects: transformedProjects,
+      workspaceName: workspace.name
     })
 
   } catch (error) {
@@ -171,7 +177,7 @@ export async function GET(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    const user = await getCurrentUser()
+    const user = await getCurrentUser(request)
     
     if (!user) {
       return NextResponse.json(
@@ -190,11 +196,29 @@ export async function DELETE(request: NextRequest) {
       )
     }
 
-    // Verify project ownership
+    // Get user's workspace first
+    const userWithWorkspace = await prisma.user.findUnique({
+      where: { id: user.userId },
+      include: {
+        workspaces: {
+          include: {
+            workspace: true
+          }
+        }
+      }
+    })
+
+    if (!userWithWorkspace || !userWithWorkspace.workspaces[0]) {
+      return NextResponse.json({ error: 'No workspace found' }, { status: 400 })
+    }
+
+    const workspaceId = userWithWorkspace.workspaces[0].workspace.id
+
+    // Verify project ownership using workspace validation
     const project = await prisma.project.findFirst({
       where: {
         id: projectId,
-        userId: user.userId,
+        workspaceId: workspaceId,
       },
     })
 
@@ -212,7 +236,10 @@ export async function DELETE(request: NextRequest) {
       },
     })
 
-    return NextResponse.json({ success: true })
+    return NextResponse.json({ 
+      success: true,
+      message: 'Project deleted successfully'
+    })
   } catch (error) {
     console.error('Error deleting project:', error)
     return NextResponse.json(

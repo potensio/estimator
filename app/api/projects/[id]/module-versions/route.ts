@@ -15,15 +15,34 @@ export async function GET(
 
     const { id: projectId } = await params;
 
-    // Verify project ownership
+    // Get user's workspace first
+    const userWithWorkspace = await prisma.user.findUnique({
+      where: { id: user.userId },
+      include: {
+        workspaces: {
+          include: {
+            workspace: true
+          }
+        }
+      }
+    })
+
+    if (!userWithWorkspace || !userWithWorkspace.workspaces[0]) {
+      return NextResponse.json({ error: 'No workspace found' }, { status: 400 })
+    }
+
+    const workspaceId = userWithWorkspace.workspaces[0].workspace.id
+
+    // Verify project ownership and get active version
     const project = await prisma.project.findFirst({
       where: {
         id: projectId,
-        userId: user.userId,
+        workspaceId: workspaceId,
       },
       select: {
         id: true,
         name: true,
+        activeVersionId: true,
       },
     });
 
@@ -50,6 +69,7 @@ export async function GET(
 
     return NextResponse.json({
       versions,
+      activeVersionId: project.activeVersionId,
     });
   } catch (error) {
     console.error("Error fetching module versions:", error);
@@ -81,11 +101,29 @@ export async function POST(
       );
     }
 
+    // Get user's workspace first
+    const userWithWorkspace = await prisma.user.findUnique({
+      where: { id: user.userId },
+      include: {
+        workspaces: {
+          include: {
+            workspace: true
+          }
+        }
+      }
+    })
+
+    if (!userWithWorkspace || !userWithWorkspace.workspaces[0]) {
+      return NextResponse.json({ error: 'No workspace found' }, { status: 400 })
+    }
+
+    const workspaceId = userWithWorkspace.workspaces[0].workspace.id
+
     // Verify project ownership
     const project = await prisma.project.findFirst({
       where: {
         id: projectId,
-        userId: user.userId,
+        workspaceId: workspaceId,
       },
     });
 

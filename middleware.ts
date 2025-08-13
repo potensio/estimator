@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
-import { getCurrentUser } from './lib/auth'
 
 // Routes that require authentication
 const protectedRoutes = ['/projects', '/estimates', '/workspace']
@@ -8,50 +7,36 @@ const protectedRoutes = ['/projects', '/estimates', '/workspace']
 // Routes that should redirect to projects if user is authenticated
 const authRoutes = ['/login', '/signup']
 
-// Public routes that don't require authentication
-const publicRoutes = ['/', '/api/auth/signup', '/api/auth/login', '/api/auth/logout']
-
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
   
-  // Allow public routes
-  if (publicRoutes.some(route => pathname.startsWith(route))) {
+  // Allow all API routes and static files
+  if (
+    pathname.startsWith('/api/') ||
+    pathname.startsWith('/_next/') ||
+    pathname.startsWith('/images/') ||
+    pathname.includes('.')
+  ) {
     return NextResponse.next()
   }
-  
-  // Get current user
-  const user = await getCurrentUser(request)
+
+  // Get auth token from cookie (no database call!)
+  const authToken = request.cookies.get('auth-token')?.value
   
   // Check if route requires authentication
   const isProtectedRoute = protectedRoutes.some(route => pathname.startsWith(route))
   const isAuthRoute = authRoutes.some(route => pathname.startsWith(route))
   
-  // Redirect to login if accessing protected route without authentication
-  if (isProtectedRoute && !user) {
+  // Redirect to login if accessing protected route without token
+  if (isProtectedRoute && !authToken) {
     const loginUrl = new URL('/login', request.url)
     loginUrl.searchParams.set('redirect', pathname)
     return NextResponse.redirect(loginUrl)
   }
   
-  // Redirect to projects if accessing auth routes while authenticated
-  if (isAuthRoute && user) {
+  // Redirect to projects if accessing auth routes with token
+  if (isAuthRoute && authToken) {
     return NextResponse.redirect(new URL('/projects', request.url))
-  }
-  
-  // Add user info to headers for server components
-  if (user) {
-    const requestHeaders = new Headers(request.headers)
-    requestHeaders.set('x-user-id', user.userId)
-    requestHeaders.set('x-user-email', user.email)
-    if (user.workspaceId) {
-      requestHeaders.set('x-workspace-id', user.workspaceId)
-    }
-    
-    return NextResponse.next({
-      request: {
-        headers: requestHeaders,
-      },
-    })
   }
   
   return NextResponse.next()

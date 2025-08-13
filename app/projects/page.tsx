@@ -1,63 +1,80 @@
-import { redirect } from 'next/navigation'
-import { getCurrentUser } from '@/lib/auth'
-import { prisma } from '@/lib/db'
+'use client'
+
+import { useEffect, useState } from 'react'
+import { useAuth } from '@/lib/client-auth'
+import { useRouter } from 'next/navigation'
 import { ProjectsClient } from './projects-client'
+import { ProjectsSkeleton } from '@/components/projects-skeleton'
 
+interface Project {
+  id: string
+  title: string
+  company: string
+  clarity: number
+  status: 'Active' | 'In Progress' | 'Completed' | 'On Hold'
+  date: string
+  href?: string
+}
 
-export default async function ProjectsPage() {
-  const user = await getCurrentUser()
-  
-  if (!user) {
-    redirect('/login')
-  }
+export default function ProjectsPage() {
+  const { user, loading } = useAuth()
+  const router = useRouter()
+  const [projects, setProjects] = useState<Project[]>([])
+  const [projectsLoading, setProjectsLoading] = useState(true)
+  const [workspaceName, setWorkspaceName] = useState('')
+  const [refreshTrigger, setRefreshTrigger] = useState(0)
 
-  // Get user's workspace and projects with workspace isolation
-  const userWithWorkspace = await prisma.user.findUnique({
-    where: { id: user.userId },
-    include: {
-      workspaces: {
-        include: {
-          workspace: {
-            include: {
-              projects: {
-                include: {
-                  estimates: true,
-                  analysis: true
-                },
-                orderBy: {
-                  updatedAt: 'desc'
-                }
-              }
-            }
-          }
-        }
-      }
+  useEffect(() => {
+    if (!loading && !user) {
+      router.push('/login')
+      return
     }
-  })
 
-  if (!userWithWorkspace || !userWithWorkspace.workspaces[0]) {
-    redirect('/login')
+    if (user) {
+      fetchProjects()
+    }
+  }, [user, loading, router, refreshTrigger])
+
+  const fetchProjects = async () => {
+    try {
+      const response = await fetch('/api/projects')
+      
+      if (response.status === 401) {
+        router.push('/login')
+        return
+      }
+      
+      if (response.ok) {
+        const data = await response.json()
+        setProjects(data.projects)
+        setWorkspaceName(data.workspaceName)
+      } else {
+        console.error('Failed to fetch projects')
+      }
+    } catch (error) {
+      console.error('Failed to fetch projects:', error)
+    } finally {
+      setProjectsLoading(false)
+    }
   }
 
-  const workspace = userWithWorkspace.workspaces[0].workspace
-  const projects = workspace.projects
+  const refreshProjects = () => {
+    setRefreshTrigger(prev => prev + 1)
+  }
 
-  // Transform projects to match the expected format
-  const transformedProjects = projects.map((project: any) => ({
-    id: project.id,
-    title: project.name,
-    company: workspace.name,
-    clarity: project.analysis?.overallClarity || 0, // Use real clarity from analysis
-    status: (project.status === 'draft' ? 'Active' : 
-            project.status === 'active' ? 'Active' : 
-            project.status === 'completed' ? 'Completed' : 'In Progress') as 'Active' | 'Completed' | 'In Progress',
-    date: project.createdAt.toLocaleDateString('en-US', { 
-      month: 'short', 
-      day: 'numeric', 
-      year: 'numeric' 
-    }),
-    href: `/projects/${project.id}`
-  }))
+  if (loading || projectsLoading) {
+    return <ProjectsSkeleton />
+  }
 
-  return <ProjectsClient projects={transformedProjects} workspaceName={workspace.name} />
+  if (!user) {
+    return null // Will redirect
+  }
+
+  return (
+    <ProjectsClient 
+      projects={projects} 
+      workspaceName={workspaceName}
+      onRefresh={refreshProjects}
+    />
+  )
 }

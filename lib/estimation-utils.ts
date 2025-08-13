@@ -1,122 +1,117 @@
-// Fibonacci estimation utilities
+// T-shirt size estimation utilities
 
-// Fibonacci scale mapping points to hours
-export const FIBONACCI_SCALE = {
-  1: { hours: 2, description: "Very simple task" },
-  2: { hours: 4, description: "Simple task" },
-  3: { hours: 6, description: "Small task" },
-  5: { hours: 14, description: "Medium task" },
-  8: { hours: 20, description: "Large task" },
-  13: { hours: 34, description: "Very large task" },
-  21: { hours: 54, description: "Epic task" },
-  34: { hours: 88, description: "Should be broken down" },
-  55: { hours: 144, description: "Too large - must break down" }
+// T-shirt size scale mapping to hours
+export const TSHIRT_SCALE = {
+  'XS': { hours: 1, description: "Extra Small - Very simple task" },
+  'S': { hours: 2, description: "Small - Simple task" },
+  'M': { hours: 4, description: "Medium - Standard task" },
+  'L': { hours: 8, description: "Large - Complex task" },
+  'XL': { hours: 16, description: "Extra Large - Very complex task" },
+  'XXL': { hours: 32, description: "Too Large - Should be broken down" }
 } as const;
 
-export type FibonacciPoint = keyof typeof FIBONACCI_SCALE;
+export type TShirtSize = keyof typeof TSHIRT_SCALE;
 export type OptimisticLevel = 'optimistic' | 'realistic' | 'pessimistic';
 
-// Fibonacci sequence for easy reference
-export const FIBONACCI_SEQUENCE: FibonacciPoint[] = [1, 2, 3, 5, 8, 13, 21, 34, 55];
+// T-shirt size sequence for easy reference
+export const TSHIRT_SEQUENCE: TShirtSize[] = ['XS', 'S', 'M', 'L', 'XL', 'XXL'];
 
 // Adjustment multipliers for different optimistic levels
-export const FIBONACCI_ADJUSTMENTS = {
+export const TSHIRT_ADJUSTMENTS = {
   optimistic: {
     description: "Best case scenario - ideal conditions, no blockers",
-    pointsShift: -1, // Move down 1 Fibonacci level
-    maxShift: 1 // Minimum point is 1
+    sizeShift: -1, // Move down 1 T-shirt size level
+    minSize: 'XS' // Minimum size is XS
   },
   realistic: {
     description: "Most likely scenario - normal development conditions",
-    pointsShift: 0, // No change
-    maxShift: 0
+    sizeShift: 0, // No change
+    minSize: 'XS'
   },
   pessimistic: {
     description: "Worst case scenario - accounting for unknowns and challenges",
-    pointsShift: 1, // Move up 1 Fibonacci level
-    maxShift: 55 // Maximum point is 55
+    sizeShift: 1, // Move up 1 T-shirt size level
+    maxSize: 'XXL' // Maximum size is XXL
   }
 } as const;
 
 /**
- * Convert Fibonacci points to hours
+ * Convert T-shirt size to hours
  */
-export function fibonacciToHours(points: FibonacciPoint): number {
-  return FIBONACCI_SCALE[points].hours;
+export function tshirtToHours(size: TShirtSize): number {
+  return TSHIRT_SCALE[size].hours;
 }
 
 /**
- * Convert hours to closest Fibonacci points
+ * Convert hours to closest T-shirt size
  */
-export function hoursToFibonacci(hours: number): FibonacciPoint {
-  let closestPoint: FibonacciPoint = 1;
-  let minDiff = Math.abs(hours - FIBONACCI_SCALE[1].hours);
+export function hoursToTShirt(hours: number): TShirtSize {
+  let closestSize: TShirtSize = 'XS';
+  let minDiff = Math.abs(hours - TSHIRT_SCALE['XS'].hours);
   
-  for (const point of FIBONACCI_SEQUENCE) {
-    const diff = Math.abs(hours - FIBONACCI_SCALE[point].hours);
+  for (const size of TSHIRT_SEQUENCE) {
+    const diff = Math.abs(hours - TSHIRT_SCALE[size].hours);
     if (diff < minDiff) {
       minDiff = diff;
-      closestPoint = point;
+      closestSize = size;
     }
   }
   
-  return closestPoint;
+  return closestSize;
 }
 
 /**
- * Get the next Fibonacci number in sequence
+ * Get the next T-shirt size in sequence
  */
-export function getNextFibonacci(current: FibonacciPoint): FibonacciPoint {
-  const currentIndex = FIBONACCI_SEQUENCE.indexOf(current);
-  if (currentIndex === -1 || currentIndex === FIBONACCI_SEQUENCE.length - 1) {
+export function getNextTShirtSize(current: TShirtSize): TShirtSize {
+  const currentIndex = TSHIRT_SEQUENCE.indexOf(current);
+  if (currentIndex === -1 || currentIndex === TSHIRT_SEQUENCE.length - 1) {
     return current; // Return current if not found or already at max
   }
-  return FIBONACCI_SEQUENCE[currentIndex + 1];
+  return TSHIRT_SEQUENCE[currentIndex + 1];
 }
 
 /**
- * Get the previous Fibonacci number in sequence
+ * Get the previous T-shirt size in sequence
  */
-export function getPreviousFibonacci(current: FibonacciPoint): FibonacciPoint {
-  const currentIndex = FIBONACCI_SEQUENCE.indexOf(current);
+export function getPreviousTShirtSize(current: TShirtSize): TShirtSize {
+  const currentIndex = TSHIRT_SEQUENCE.indexOf(current);
   if (currentIndex === -1 || currentIndex === 0) {
     return current; // Return current if not found or already at min
   }
-  return FIBONACCI_SEQUENCE[currentIndex - 1];
+  return TSHIRT_SEQUENCE[currentIndex - 1];
 }
 
 /**
- * Adjust Fibonacci points based on optimistic level
+ * Adjust T-shirt size based on optimistic level
  */
-export function adjustFibonacciPoints(
-  originalPoints: FibonacciPoint,
+export function adjustTShirtSize(
+  originalSize: TShirtSize,
   level: OptimisticLevel
-): FibonacciPoint {
-  const adjustment = FIBONACCI_ADJUSTMENTS[level];
+): TShirtSize {
+  const adjustment = TSHIRT_ADJUSTMENTS[level];
   
-  if (adjustment.pointsShift === 0) {
-    return originalPoints; // No change for realistic
+  if (adjustment.sizeShift === 0) {
+    return originalSize; // No change for realistic
   }
   
-  if (adjustment.pointsShift > 0) {
+  if (adjustment.sizeShift > 0) {
     // Move up (pessimistic)
-    return getNextFibonacci(originalPoints);
+    return getNextTShirtSize(originalSize);
   } else {
     // Move down (optimistic)
-    return getPreviousFibonacci(originalPoints);
+    return getPreviousTShirtSize(originalSize);
   }
 }
 
 /**
- * Calculate total estimation for a module with Fibonacci adjustments
+ * Calculate total estimation for a module with T-shirt size adjustments (bottom-up approach)
  */
 export function calculateModuleEstimation(
   modulesData: any,
   level: OptimisticLevel = 'realistic',
-  teamVelocity: number = 20 // Default team velocity in points per sprint
+  teamVelocity: number = 20 // Default team velocity in hours per sprint
 ) {
-  let totalOriginalPoints = 0;
-  let totalAdjustedPoints = 0;
   let totalOriginalHours = 0;
   let totalAdjustedHours = 0;
   
@@ -125,60 +120,61 @@ export function calculateModuleEstimation(
   // Process each module
   if (modulesData.modules) {
     for (const module of modulesData.modules) {
+      let moduleOriginalHours = 0;
+      let moduleAdjustedHours = 0;
+      
       if (module.features) {
         for (const feature of module.features) {
-          if (feature.estimation && feature.estimation.fibonacci_points) {
-            const originalPoints = feature.estimation.fibonacci_points as FibonacciPoint;
-            const adjustedPoints = adjustFibonacciPoints(originalPoints, level);
-            
-            const originalHours = fibonacciToHours(originalPoints);
-            const adjustedHours = fibonacciToHours(adjustedPoints);
-            
-            totalOriginalPoints += originalPoints;
-            totalAdjustedPoints += adjustedPoints;
-            totalOriginalHours += originalHours;
-            totalAdjustedHours += adjustedHours;
-            
-            adjustments[feature.id] = {
-              original_points: originalPoints,
-              adjusted_points: adjustedPoints,
-              original_hours: originalHours,
-              adjusted_hours: adjustedHours,
-              adjustment_reason: FIBONACCI_ADJUSTMENTS[level].description
-            };
-          }
+          let featureOriginalHours = 0;
+          let featureAdjustedHours = 0;
           
-          // Process sub-features
+          // Only calculate from sub-features (bottom-up approach)
           if (feature.sub_features) {
             for (const subFeature of feature.sub_features) {
-              if (subFeature.estimation && subFeature.estimation.fibonacci_points) {
-                const originalPoints = subFeature.estimation.fibonacci_points as FibonacciPoint;
-                const adjustedPoints = adjustFibonacciPoints(originalPoints, level);
+              if (subFeature.estimation && subFeature.estimation.tshirt_size) {
+                const originalSize = subFeature.estimation.tshirt_size as TShirtSize;
+                const adjustedSize = adjustTShirtSize(originalSize, level);
                 
-                const originalHours = fibonacciToHours(originalPoints);
-                const adjustedHours = fibonacciToHours(adjustedPoints);
+                const originalHours = tshirtToHours(originalSize);
+                const adjustedHours = tshirtToHours(adjustedSize);
                 
-                totalOriginalPoints += originalPoints;
-                totalAdjustedPoints += adjustedPoints;
-                totalOriginalHours += originalHours;
-                totalAdjustedHours += adjustedHours;
+                featureOriginalHours += originalHours;
+                featureAdjustedHours += adjustedHours;
                 
                 adjustments[subFeature.id] = {
-                  original_points: originalPoints,
-                  adjusted_points: adjustedPoints,
+                  original_size: originalSize,
+                  adjusted_size: adjustedSize,
                   original_hours: originalHours,
                   adjusted_hours: adjustedHours,
-                  adjustment_reason: FIBONACCI_ADJUSTMENTS[level].description
+                  adjustment_reason: TSHIRT_ADJUSTMENTS[level].description
                 };
               }
             }
           }
+          
+          // Store calculated totals in feature object for UI display
+          feature.calculated_hours = {
+            original: featureOriginalHours,
+            adjusted: Math.round(featureAdjustedHours)
+          };
+          
+          moduleOriginalHours += featureOriginalHours;
+          moduleAdjustedHours += featureAdjustedHours;
         }
       }
+      
+      // Store calculated totals in module object for UI display
+      module.calculated_hours = {
+        original: moduleOriginalHours,
+        adjusted: Math.round(moduleAdjustedHours)
+      };
+      
+      totalOriginalHours += moduleOriginalHours;
+      totalAdjustedHours += moduleAdjustedHours;
     }
   }
   
-  const estimatedSprints = totalAdjustedPoints / teamVelocity;
+  const estimatedSprints = totalAdjustedHours / teamVelocity;
   const estimatedWeeks = estimatedSprints * 2; // Assuming 2-week sprints
   
   return {
@@ -186,8 +182,6 @@ export function calculateModuleEstimation(
     team_velocity: teamVelocity,
     adjustments,
     totals: {
-      original_points: totalOriginalPoints,
-      adjusted_points: totalAdjustedPoints,
       original_hours: totalOriginalHours,
       adjusted_hours: totalAdjustedHours,
       estimated_sprints: Math.ceil(estimatedSprints * 10) / 10, // Round to 1 decimal
@@ -197,25 +191,23 @@ export function calculateModuleEstimation(
 }
 
 /**
- * Validate if a number is a valid Fibonacci point
+ * Validate if a string is a valid T-shirt size
  */
-export function isValidFibonacciPoint(point: number): point is FibonacciPoint {
-  return point in FIBONACCI_SCALE;
+export function isValidTShirtSize(size: string): size is TShirtSize {
+  return size in TSHIRT_SCALE;
 }
 
 /**
  * Get estimation summary for display
  */
 export function getEstimationSummary(
-  totalPoints: number,
   totalHours: number,
   teamVelocity: number = 20
 ) {
-  const sprints = totalPoints / teamVelocity;
+  const sprints = totalHours / teamVelocity;
   const weeks = sprints * 2;
   
   return {
-    points: totalPoints,
     hours: totalHours,
     sprints: Math.ceil(sprints * 10) / 10,
     weeks: Math.ceil(weeks * 10) / 10,

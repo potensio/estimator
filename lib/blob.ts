@@ -449,29 +449,30 @@ export async function generateModuleDetails(
 ): Promise<any> {
   const prompt = `
 You are a senior software architect and estimation expert. Focus ONLY on module: ${moduleName}
-Generate ALL features and sub-features for this specific module with Fibonacci point estimation.
+Generate ALL features and sub-features for this specific module with BOTTOM-UP T-shirt size estimation.
 
 Module: ${moduleName}
 Description: ${moduleDescription}
 
-FIBONACCI ESTIMATION GUIDE:
-- 1 point (2 hours): Very simple task (basic CRUD, simple UI)
-- 2 points (4 hours): Simple task (form validation, basic API)
-- 3 points (6 hours): Small task (authentication flow, data processing)
-- 5 points (14 hours): Medium task (complex business logic, integrations)
-- 8 points (20 hours): Large task (full feature with multiple components)
-- 13 points (34 hours): Very large task (complex system integration)
-- 21 points (54 hours): Epic task (major feature with many dependencies)
-- 34+ points: Should be broken down into smaller features
+T-SHIRT SIZE ESTIMATION GUIDE:
+- XS (1 hour): Very simple task (basic CRUD, simple UI)
+- S (2 hours): Simple task (form validation, basic API)
+- M (4 hours): Small task (authentication flow, data processing)
+- L (8 hours): Medium task (complex business logic, integrations)
+- XL (16 hours): Large task (full feature with multiple components)
+- XXL (32 hours): Very large task (complex system integration)
+- XXXL (64 hours): Epic task (major feature with many dependencies)
+- Larger than XXXL: Should be broken down into smaller sub-features
 
-INSTRUCTIONS:
-1. Generate comprehensive features for this module only
-2. Break down each feature into specific sub-features
-3. Estimate each feature AND sub-feature using Fibonacci points
-4. Include technical considerations and complexity reasoning
-5. Think like a developer - what needs to be built?
-6. Include edge cases and error handling
-7. You MUST respond ONLY with valid JSON, no additional text
+IMPORTANT BOTTOM-UP ESTIMATION RULES:
+1. ONLY estimate at SUB-FEATURE level - this is the atomic unit of work
+2. Feature totals will be AUTO-CALCULATED from sub-feature estimates
+3. Module totals will be AUTO-CALCULATED from feature totals
+4. Think like a developer - what specific tasks need to be implemented?
+5. Break down features into granular, implementable sub-features
+6. Each sub-feature should be a single, focused development task
+7. Include technical considerations and complexity reasoning
+8. You MUST respond ONLY with valid JSON, no additional text
 
 Respond ONLY in this JSON format:
 {
@@ -484,12 +485,6 @@ Respond ONLY in this JSON format:
       "name": "Feature Name",
       "description": "Detailed feature description",
       "complexity": "low|medium|high",
-      "estimation": {
-        "fibonacci_points": 8,
-        "estimated_hours": 20,
-        "confidence_level": "medium",
-        "reasoning": "Explanation of why this estimation was chosen"
-      },
       "sub_features": [
         {
           "id": "sub-001",
@@ -497,22 +492,27 @@ Respond ONLY in this JSON format:
           "description": "Specific implementation detail",
           "technical_notes": "Any technical considerations",
           "estimation": {
-            "fibonacci_points": 3,
-            "estimated_hours": 6,
+            "tshirt_size": "M",
+            "estimated_hours": 4,
             "reasoning": "Explanation for sub-feature estimation"
+          }
+        },
+        {
+          "id": "sub-002",
+          "name": "Another Sub-feature",
+          "description": "Another specific implementation detail",
+          "technical_notes": "Technical considerations",
+          "estimation": {
+            "tshirt_size": "S",
+            "estimated_hours": 2,
+            "reasoning": "Explanation for this estimation"
           }
         }
       ],
       "dependencies": ["other-feature-ids"],
       "integrations": ["external systems if any"]
     }
-  ],
-  "module_totals": {
-    "total_fibonacci_points": 0,
-    "total_estimated_hours": 0,
-    "feature_count": 0,
-    "sub_feature_count": 0
-  }
+  ]
 }
 `;
 

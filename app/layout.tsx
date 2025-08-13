@@ -1,15 +1,12 @@
-import type { Metadata } from "next";
+'use client'
+
 import { GeistSans } from "geist/font/sans";
 import { GeistMono } from "geist/font/mono";
 import { Toaster } from "@/components/ui/toaster";
+import { AuthProvider } from "@/lib/client-auth";
 import "./globals.css";
 
-export const metadata: Metadata = {
-  title: "v0 App",
-  description: "Created with v0",
-  generator: "v0.dev",
-};
-
+// Note: Metadata export removed for client component
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -18,6 +15,8 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
+        <title>Etalas Estimator</title>
+        <meta name="description" content="Project estimation tool" />
         <style>{`
 html {
   font-family: ${GeistSans.style.fontFamily};
@@ -27,8 +26,10 @@ html {
         `}</style>
       </head>
       <body>
-        {children}
-        <Toaster />
+        <AuthProvider>
+          {children}
+          <Toaster />
+        </AuthProvider>
       </body>
     </html>
   );

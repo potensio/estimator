@@ -99,10 +99,8 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
         name: `${optimisticLevel.charAt(0).toUpperCase() + optimisticLevel.slice(1)} Estimation`,
         modulesData: moduleVersion.modulesData as any, // Keep the same modules data
         ...(adjustedEstimation.totals.original_hours && { baseEstimationHours: adjustedEstimation.totals.original_hours }),
-        ...(adjustedEstimation.totals.original_points && { baseFibonacciPoints: adjustedEstimation.totals.original_points }),
         ...(optimisticLevel && { optimisticLevel: optimisticLevel }),
         ...(adjustedEstimation.totals.adjusted_hours && { adjustedEstimationHours: adjustedEstimation.totals.adjusted_hours }),
-        ...(adjustedEstimation.totals.adjusted_points && { adjustedFibonacciPoints: adjustedEstimation.totals.adjusted_points }),
         ...(adjustedEstimation.totals.estimated_sprints && { totalEstimatedSprints: adjustedEstimation.totals.estimated_sprints }),
         ...(teamVelocity && { teamVelocity: teamVelocity })
       }

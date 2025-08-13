@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useCallback } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -37,13 +37,29 @@ export type Project = {
   status: Status
   date: string
   href?: string
+  onRefresh?: () => void
 }
 
-export function ProjectCard({ id, title, company, clarity, status, date, href }: Project) {
+export function ProjectCard({ id, title, company, clarity, status, date, href, onRefresh }: Project) {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const router = useRouter()
   const { toast } = useToast()
+
+  // Prefetch project data on hover
+  const handlePrefetch = useCallback(() => {
+    if (href && id) {
+      // Prefetch the project data
+      fetch(`/api/projects/${id}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }).catch(() => {
+        // Silently ignore prefetch errors
+      })
+    }
+  }, [id, href])
 
   const badge =
     status === "Completed"
@@ -70,8 +86,12 @@ export function ProjectCard({ id, title, company, clarity, status, date, href }:
         description: "The project has been successfully deleted.",
       })
 
-      // Refresh the page to update the project list
-      router.refresh()
+      // Refresh the project list
+      if (onRefresh) {
+        onRefresh()
+      } else {
+        router.refresh()
+      }
     } catch (error) {
       console.error('Error deleting project:', error)
       toast({
@@ -150,7 +170,11 @@ export function ProjectCard({ id, title, company, clarity, status, date, href }:
   return (
     <>
       {href ? (
-        <Link href={href} className="block transition-transform hover:-translate-y-0.5">
+        <Link 
+          href={href} 
+          className="block transition-transform hover:-translate-y-0.5"
+          onMouseEnter={handlePrefetch}
+        >
           {card}
         </Link>
       ) : (

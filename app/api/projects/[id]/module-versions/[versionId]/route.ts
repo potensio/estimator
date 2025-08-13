@@ -23,13 +23,31 @@ export async function PUT(
       );
     }
 
+    // Get user's workspace first
+    const userWithWorkspace = await prisma.user.findUnique({
+      where: { id: user.userId },
+      include: {
+        workspaces: {
+          include: {
+            workspace: true
+          }
+        }
+      }
+    })
+
+    if (!userWithWorkspace || !userWithWorkspace.workspaces[0]) {
+      return NextResponse.json({ error: 'No workspace found' }, { status: 400 })
+    }
+
+    const workspaceId = userWithWorkspace.workspaces[0].workspace.id
+
     // Verify project ownership and version exists
     const version = await prisma.moduleVersion.findFirst({
       where: {
         id: versionId,
         projectId: projectId,
         project: {
-          userId: user.userId,
+          workspaceId: workspaceId,
         },
       },
     });

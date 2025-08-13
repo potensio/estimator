@@ -4,7 +4,7 @@ import type React from "react";
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Edit } from "lucide-react";
+import { Edit, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -30,6 +30,7 @@ export function EditProjectDialog({ projectId, currentName, currentDescription }
   const [projectName, setProjectName] = useState(currentName);
   const [description, setDescription] = useState(currentDescription || "");
   const [isLoading, setIsLoading] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [error, setError] = useState("");
   const router = useRouter();
 
@@ -63,6 +64,36 @@ export function EditProjectDialog({ projectId, currentName, currentDescription }
       setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
       setIsLoading(false);
+    }
+  }
+
+  async function onDelete() {
+    if (!window.confirm(`Are you sure you want to delete "${currentName}"? This action cannot be undone.`)) {
+      return;
+    }
+
+    setIsDeleting(true);
+    setError("");
+
+    try {
+      const response = await fetch(`/api/projects?projectId=${projectId}`, {
+        method: "DELETE",
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to delete project");
+      }
+
+      // Success - close dialog and navigate to projects list
+      setOpen(false);
+      router.push('/projects');
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "An error occurred");
+    } finally {
+      setIsDeleting(false);
     }
   }
 
@@ -113,17 +144,30 @@ export function EditProjectDialog({ projectId, currentName, currentDescription }
             </Alert>
           )}
 
-          <DialogFooter className="gap-2 sm:space-x-2">
+          <DialogFooter className="flex flex-col-reverse sm:flex-row sm:justify-between gap-2">
             <Button
               type="button"
-              variant="outline"
-              onClick={() => setOpen(false)}
+              variant="destructive"
+              onClick={onDelete}
+              disabled={isDeleting || isLoading}
+              className="sm:mr-auto"
             >
-              Cancel
+              <Trash2 className="mr-2 h-4 w-4" />
+              {isDeleting ? "Deleting..." : "Delete Project"}
             </Button>
-            <Button type="submit" disabled={!canUpdate || isLoading}>
-              {isLoading ? "Updating..." : "Update Project"}
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setOpen(false)}
+                disabled={isLoading || isDeleting}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={!canUpdate || isLoading || isDeleting}>
+                {isLoading ? "Updating..." : "Update Project"}
+              </Button>
+            </div>
           </DialogFooter>
         </form>
       </DialogContent>

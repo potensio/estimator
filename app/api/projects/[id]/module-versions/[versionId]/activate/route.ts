@@ -15,11 +15,29 @@ export async function PUT(
 
     const { id: projectId, versionId } = await params;
 
-    // Verify project ownership
+    // Get user's workspace first
+    const userWithWorkspace = await prisma.user.findUnique({
+      where: { id: user.userId },
+      include: {
+        workspaces: {
+          include: {
+            workspace: true
+          }
+        }
+      }
+    })
+
+    if (!userWithWorkspace || !userWithWorkspace.workspaces[0]) {
+      return NextResponse.json({ error: 'No workspace found' }, { status: 400 })
+    }
+
+    const workspaceId = userWithWorkspace.workspaces[0].workspace.id
+
+    // Verify project ownership using workspace validation
     const project = await prisma.project.findFirst({
       where: {
         id: projectId,
-        userId: user.userId,
+        workspaceId: workspaceId,
       },
     });
 
@@ -39,21 +57,16 @@ export async function PUT(
       return NextResponse.json({ error: "Version not found" }, { status: 404 });
     }
 
-    // Note: activeVersionId field will be added in future migration
-    // For now, we just return success without actually setting active version
-    const updatedProject = await prisma.project.findFirst({
-      where: {
-        id: projectId,
-      },
-      select: {
-        id: true,
-        name: true,
-      },
+    // Update the project to set the active version
+    await prisma.project.update({
+      where: { id: projectId },
+      data: { activeVersionId: versionId },
     });
 
     return NextResponse.json({
       success: true,
       activeVersionId: versionId,
+      message: `Activated version ${version.version}`,
     });
   } catch (error) {
     console.error("Error activating module version:", error);

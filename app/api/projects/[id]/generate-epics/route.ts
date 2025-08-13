@@ -8,18 +8,36 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const user = await getCurrentUser();
+    const user = await getCurrentUser(request);
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const { id } = await params;
 
-    // Verify project ownership and get files
+    // Get user's workspace first
+    const userWithWorkspace = await prisma.user.findUnique({
+      where: { id: user.userId },
+      include: {
+        workspaces: {
+          include: {
+            workspace: true
+          }
+        }
+      }
+    })
+
+    if (!userWithWorkspace || !userWithWorkspace.workspaces[0]) {
+      return NextResponse.json({ error: 'No workspace found' }, { status: 400 })
+    }
+
+    const workspaceId = userWithWorkspace.workspaces[0].workspace.id
+
+    // Verify project ownership using workspace validation and get files
     const project = await prisma.project.findFirst({
       where: {
         id: id,
-        userId: user.userId,
+        workspaceId: workspaceId,
       },
       include: {
         files: true,

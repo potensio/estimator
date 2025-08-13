@@ -9,9 +9,10 @@ import { NewProjectDialog } from "@/components/new-project-dialog"
 interface ProjectsClientProps {
   projects: Project[]
   workspaceName: string
+  onRefresh?: () => void
 }
 
-export function ProjectsClient({ projects, workspaceName }: ProjectsClientProps) {
+export function ProjectsClient({ projects, workspaceName, onRefresh }: ProjectsClientProps) {
   const [searchTerm, setSearchTerm] = useState('')
 
   const filteredProjects = useMemo(() => {
@@ -77,7 +78,7 @@ export function ProjectsClient({ projects, workspaceName }: ProjectsClientProps)
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {filteredProjects.map((project: Project) => (
-            <ProjectCard key={project.id} {...project} />
+            <ProjectCard key={project.id} {...project} onRefresh={onRefresh} />
           ))}
         </div>
       )}
