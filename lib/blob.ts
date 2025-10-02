@@ -455,14 +455,13 @@ Module: ${moduleName}
 Description: ${moduleDescription}
 
 T-SHIRT SIZE ESTIMATION GUIDE:
-- XS (1 hour): Very simple task (basic CRUD, simple UI)
-- S (2 hours): Simple task (form validation, basic API)
-- M (4 hours): Small task (authentication flow, data processing)
-- L (8 hours): Medium task (complex business logic, integrations)
-- XL (16 hours): Large task (full feature with multiple components)
-- XXL (32 hours): Very large task (complex system integration)
-- XXXL (64 hours): Epic task (major feature with many dependencies)
-- Larger than XXXL: Should be broken down into smaller sub-features
+- XS (1 hour): Very simple task (basic CRUD, simple UI, form validation, basic API)
+- S (2 hours): Simple task (authentication flow, data processing)
+- M (4 hours): Small task (moderate business logic, integrations)
+- L (8 hours): Medium task (full feature with multiple components)
+- XL (16 hours): Large task (complex system integration)
+- XXL (32 hours): Very large task (major feature with many dependencies)
+- XXXL (64 hours): Should be broken down into smaller sub-features
 
 IMPORTANT BOTTOM-UP ESTIMATION RULES:
 1. ONLY estimate at SUB-FEATURE level - this is the atomic unit of work

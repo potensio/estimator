@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { UserMenu } from "@/components/user-menu";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 interface TopNavProps {
   user?: {
@@ -43,14 +44,17 @@ export function TopNav({ user, workspace }: TopNavProps) {
           </span>
         </nav>
 
-        {user && workspace && (
-          <div className="flex items-center gap-3">
-            <span className="text-sm font-medium text-foreground hidden sm:block">
-              {user.name}
-            </span>
-            <UserMenu user={user} workspace={workspace} />
-          </div>
-        )}
+        <div className="flex items-center gap-3">
+          <ThemeToggle />
+          {user && workspace && (
+            <>
+              <span className="text-sm font-medium text-foreground hidden sm:block">
+                {user.name}
+              </span>
+              <UserMenu user={user} workspace={workspace} />
+            </>
+          )}
+        </div>
       </div>
     </header>
   );

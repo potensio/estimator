@@ -10,8 +10,10 @@ import {
   History,
   ChevronDown,
   Loader2,
+  FileText,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { convertModulesToMarkdown, downloadMarkdownFile, type ModuleData } from "@/lib/markdown-export";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -48,6 +50,7 @@ export function JsonEditor({
   const [versions, setVersions] = useState<any[]>([]);
   const [activeVersionId, setActiveVersionId] = useState<string | null>(null);
   const [showVersions, setShowVersions] = useState(false);
+  const [projectName, setProjectName] = useState<string>("");
   const { toast } = useToast();
 
   // Add beforeunload warning when generation is in progress
@@ -74,6 +77,7 @@ export function JsonEditor({
   useEffect(() => {
     if (projectId) {
       loadModuleVersions();
+      loadProjectName();
     }
   }, [projectId]);
 
@@ -109,6 +113,20 @@ export function JsonEditor({
     }
   };
 
+  const loadProjectName = async () => {
+    if (!projectId) return;
+    
+    try {
+      const response = await fetch(`/api/projects/${projectId}`);
+      if (response.ok) {
+        const project = await response.json();
+        setProjectName(project.name || "Untitled Project");
+      }
+    } catch (error) {
+      console.error("Error loading project name:", error);
+    }
+  };
+
   const handleEditorChange = (value: string | undefined) => {
     const newValue = value || "";
     setJsonValue(newValue);
@@ -129,6 +147,47 @@ export function JsonEditor({
       description: "JSON copied to clipboard!",
     });
   };
+
+  const exportToMarkdown = () => {
+     try {
+       if (!jsonValue) {
+         toast({
+           title: "Error",
+           description: "No data to export",
+           variant: "destructive",
+         });
+         return;
+       }
+ 
+       const parsedData = JSON.parse(jsonValue);
+       const moduleData = {
+         modules: parsedData.modules || [],
+         metadata: {
+           generated_at: new Date().toISOString(),
+           total_modules: parsedData.modules?.length || 0,
+           project_name: projectName
+         }
+       };
+
+       const markdownContent = convertModulesToMarkdown(moduleData, projectName);
+       const timestamp = new Date().toISOString().split('T')[0];
+       const filename = `${projectName.replace(/[^a-zA-Z0-9]/g, '_')}_estimation_${timestamp}.md`;
+       
+       downloadMarkdownFile(markdownContent, filename);
+       
+       toast({
+         title: "Success",
+         description: "Markdown file downloaded successfully!",
+       });
+     } catch (error) {
+       console.error("Error exporting to markdown:", error);
+       toast({
+         title: "Error",
+         description: "Failed to export to markdown",
+         variant: "destructive",
+       });
+     }
+   };
 
   const handleFormatJson = () => {
     if (isValid) {
@@ -366,6 +425,14 @@ export function JsonEditor({
               title="Copy JSON"
             >
               <CopyIcon className="h-4 w-4" />
+            </Button>
+            <Button
+              variant={"secondary"}
+              onClick={exportToMarkdown}
+              title="Export to Markdown"
+              disabled={!isValid || !jsonValue}
+            >
+              <FileText className="h-4 w-4" />
             </Button>
             {projectId && versions.length > 0 && (
               <DropdownMenu>

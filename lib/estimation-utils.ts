@@ -2,12 +2,12 @@
 
 // T-shirt size scale mapping to hours
 export const TSHIRT_SCALE = {
-  'XS': { hours: 1, description: "Extra Small - Very simple task" },
-  'S': { hours: 2, description: "Small - Simple task" },
-  'M': { hours: 4, description: "Medium - Standard task" },
-  'L': { hours: 8, description: "Large - Complex task" },
-  'XL': { hours: 16, description: "Extra Large - Very complex task" },
-  'XXL': { hours: 32, description: "Too Large - Should be broken down" }
+  'XS': { hours: 0.5, description: "Extra Small - Very simple task" },
+  'S': { hours: 1, description: "Small - Simple task" },
+  'M': { hours: 2, description: "Medium - Standard task" },
+  'L': { hours: 4, description: "Large - Complex task" },
+  'XL': { hours: 8, description: "Extra Large - Very complex task" },
+  'XXL': { hours: 16, description: "Too Large - Should be broken down" }
 } as const;
 
 export type TShirtSize = keyof typeof TSHIRT_SCALE;
